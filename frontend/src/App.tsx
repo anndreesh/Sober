@@ -260,7 +260,6 @@ function Layout({ children, currentUser, onLogout, darkMode, onToggleDark, onOpe
 }
 
 function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRecord }: { habits: Habit[]; journalEntries: JournalEntry[]; urgeLogs: UrgeLog[]; darkMode: boolean; onOpenNewRecord: () => void }) {
-  const navigate = useNavigate()
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * quotes.length))
   const longestStreakHabit = habits.reduce<Habit | undefined>(
     (longest, habit) => !longest || getStreakDays(habit.startDate) > getStreakDays(longest.startDate) ? habit : longest,
@@ -413,57 +412,8 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
 
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
-        <div className="space-y-6">
-          <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <p className="eyebrow text-xs font-semibold uppercase tracking-[0.14em]">Pequeños pasos</p>
-                <h3 className={cn('mt-1 text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Tu rutina de apoyo</h3>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {habits.length ? habits.map((habit) => (
-                <button type="button" key={habit.id} onClick={() => navigate(`/habits/${habit.id}`)} className={cn('flex w-full items-center gap-4 rounded-2xl border p-3 text-left transition', darkMode ? 'border-slate-700 bg-slate-800/80 hover:bg-slate-800' : 'border-slate-200 bg-slate-50 hover:bg-slate-100')}>
-                  <div className={cn('flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-lg font-semibold text-white', habit.color)}>{habit.name.slice(0, 1)}</div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>{habit.name}</p>
-                      <span className={cn('text-xs', darkMode ? 'text-slate-400' : 'text-slate-500')}>{getStreakDays(habit.startDate)} días</span>
-                    </div>
-                    <p className={cn('text-sm', darkMode ? 'text-slate-300' : 'text-slate-500')}>Inicio: {habit.startDate ? format(parseISO(habit.startDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
-                  </div>
-                </button>
-              )) : <div className="list-empty"><Target className="h-5 w-5" /><p>Aún no agregas hábitos.</p><button type="button" onClick={onOpenNewRecord}>Elige un primer paso</button></div>}
-            </div>
-          </Card>
-
-        </div>
-
-        <div className="space-y-6">
-          <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <p className="eyebrow text-xs font-semibold uppercase tracking-[0.14em]">Con amabilidad</p>
-                <h3 className={cn('mt-1 text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Últimos momentos</h3>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {urgeLogs.length ? urgeLogs.slice(0, 3).map((urge) => (
-                <div key={urge.id} className={cn('rounded-2xl border p-3', darkMode ? 'border-slate-700 bg-slate-800/80' : 'border-slate-200 bg-slate-50')}>
-                  <div className="flex items-center justify-between">
-                    <span className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>{urge.trigger}</span>
-                    <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">Intensidad {urge.intensity}/10</span>
-                  </div>
-                  <p className={cn('mt-1 text-sm', darkMode ? 'text-slate-300' : 'text-slate-500')}>Coping: {urge.coping}</p>
-                </div>
-              )) : <div className="list-empty"><Sparkles className="h-5 w-5" /><p>No hay impulsos registrados. Si aparece uno, aquí puedes anotarlo sin juzgarte.</p><button type="button" onClick={onOpenNewRecord}>Registrar un momento</button></div>}
-            </div>
-          </Card>
-
-        </div>
-
-        <Card className={cn('quote-card overflow-hidden p-6 xl:col-span-2', darkMode ? 'border-emerald-900/70 bg-slate-900/80' : 'border-emerald-100 bg-white/85')}>
+      <section className="w-full">
+        <Card className={cn('quote-card w-full overflow-hidden p-6', darkMode ? 'border-emerald-900/70 bg-slate-900/80' : 'border-emerald-100 bg-white/85')}>
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <p className="eyebrow text-xs font-semibold uppercase tracking-[0.14em]">Un momento para ti</p>
