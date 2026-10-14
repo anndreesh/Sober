@@ -1,3 +1,11 @@
+import os
+import tempfile
+import uuid
+
+os.environ['DATABASE_URL'] = f"sqlite:///{tempfile.gettempdir()}/sober-tests-{uuid.uuid4().hex}.db"
+os.environ['SECRET_KEY'] = 'pytest-only-secret'
+os.environ['APP_ENV'] = 'test'
+
 from fastapi.testclient import TestClient
 
 from app.main import app
