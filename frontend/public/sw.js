@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sober-free-web-v2'
+const CACHE_NAME = 'sober-free-web-v3'
 const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
@@ -20,17 +20,30 @@ self.addEventListener('fetch', (event) => {
 
   const request = event.request
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached
-      return fetch(request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response
-        }
+    (async () => {
+      const isAppShell = request.mode === 'navigate' || new URL(request.url).pathname === '/index.html'
+      const cached = await caches.match(request)
 
-        const responseClone = response.clone()
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone))
-        return response
-      })
-    }),
+      if (isAppShell) {
+        try {
+          const response = await fetch(request)
+          if (response?.ok) {
+            const cache = await caches.open(CACHE_NAME)
+            await cache.put(request, response.clone())
+          }
+          return response
+        } catch {
+          return cached ?? Response.error()
+        }
+      }
+
+      if (cached) return cached
+      const response = await fetch(request)
+      if (!response || response.status !== 200 || response.type !== 'basic') return response
+
+      const cache = await caches.open(CACHE_NAME)
+      await cache.put(request, response.clone())
+      return response
+    })(),
   )
 })
