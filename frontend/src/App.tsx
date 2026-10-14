@@ -438,23 +438,6 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
             </div>
           </Card>
 
-          <Card className={cn('quote-card overflow-hidden p-6', darkMode ? 'border-emerald-900/70 bg-slate-900/80' : 'border-emerald-100 bg-white/85')}>
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <div>
-                <p className="eyebrow text-xs font-semibold uppercase tracking-[0.14em]">Un momento para ti</p>
-                <h3 className={cn('mt-1 text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Frases</h3>
-              </div>
-              <span className="quote-mark" aria-hidden="true"><Quote className="h-5 w-5" /></span>
-            </div>
-            <blockquote key={quoteIndex} className={cn('quote-text', darkMode ? 'text-slate-100' : 'text-slate-800')}>
-              “{quotes[quoteIndex][0]}”
-            </blockquote>
-            <p className={cn('mt-4 text-sm font-medium', darkMode ? 'text-emerald-200' : 'text-emerald-800')}>— {quotes[quoteIndex][1]}</p>
-            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-4 w-4" />} className={cn('mt-5', darkMode && 'border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700')} onClick={nextQuote}>
-              Otra frase
-            </Button>
-          </Card>
-
         </div>
 
         <div className="space-y-6">
@@ -479,6 +462,23 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
           </Card>
 
         </div>
+
+        <Card className={cn('quote-card overflow-hidden p-6 xl:col-span-2', darkMode ? 'border-emerald-900/70 bg-slate-900/80' : 'border-emerald-100 bg-white/85')}>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <p className="eyebrow text-xs font-semibold uppercase tracking-[0.14em]">Un momento para ti</p>
+              <h3 className={cn('mt-1 text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Frases</h3>
+            </div>
+            <span className="quote-mark" aria-hidden="true"><Quote className="h-5 w-5" /></span>
+          </div>
+          <blockquote key={quoteIndex} className={cn('quote-text', darkMode ? 'text-slate-100' : 'text-slate-800')}>
+            “{quotes[quoteIndex][0]}”
+          </blockquote>
+          <p className={cn('mt-4 text-sm font-medium', darkMode ? 'text-emerald-200' : 'text-emerald-800')}>— {quotes[quoteIndex][1]}</p>
+          <Button variant="secondary" size="sm" icon={<RefreshCw className="h-4 w-4" />} className={cn('mt-5', darkMode && 'border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700')} onClick={nextQuote}>
+            Otra frase
+          </Button>
+        </Card>
       </section>
 
     </div>
