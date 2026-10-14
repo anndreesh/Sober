@@ -375,7 +375,7 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
               <span className={cn('rounded-full px-2 py-0.5 text-xs', darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-500')}>{allStreaks.length}</span>
             </div>
             {allStreaks.length ? (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 {allStreaks.map((streak) => (
                   <div key={streak.key} className={cn('streak-entry-card flex items-center justify-between gap-3 rounded-2xl border p-3.5 transition-colors', darkMode ? 'hover:border-emerald-700' : 'hover:border-emerald-300')}>
                     <div className="min-w-0">
