@@ -377,7 +377,7 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
             {allStreaks.length ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {allStreaks.map((streak) => (
-                  <div key={streak.key} className={cn('flex items-center justify-between gap-3 rounded-2xl border p-3.5', darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-white/70')}>
+                  <div key={streak.key} className={cn('streak-entry-card flex items-center justify-between gap-3 rounded-2xl border p-3.5 transition-colors', darkMode ? 'hover:border-emerald-700' : 'hover:border-emerald-300')}>
                     <div className="min-w-0">
                       <p className={cn('truncate text-sm font-medium', darkMode ? 'text-white' : 'text-slate-800')}>{streak.habitName}</p>
                       <p className={cn('mt-0.5 text-xs', darkMode ? 'text-slate-400' : 'text-slate-500')}>
@@ -385,7 +385,7 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
                         {streak.endDate && isValid(parseISO(streak.endDate)) ? ` – ${format(parseISO(streak.endDate), 'd MMM yyyy', { locale: es })}` : ''}
                       </p>
                     </div>
-                    <span className={cn('shrink-0 rounded-xl px-3 py-2 text-sm font-semibold', streak.isCurrent ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200' : darkMode ? 'bg-slate-700 text-slate-200' : 'bg-amber-50 text-amber-800')}>
+                    <span className={cn('shrink-0 rounded-xl px-3 py-2 text-sm font-semibold', streak.isCurrent ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200' : 'bg-white/70 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100')}>
                       {streak.days} {streak.days === 1 ? 'día' : 'días'}
                     </span>
                   </div>

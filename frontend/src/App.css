@@ -61,6 +61,8 @@
 .metric-sky { background: #e7eff0; color: #5d8186; }
 .streak-card { background: linear-gradient(110deg, #edf3eb, #f7f2e7); }
 .dark-shell .streak-card { background: linear-gradient(110deg, #1c3028, #302c20); }
+.streak-entry-card { border-color: rgba(79, 125, 99, .18); background: linear-gradient(110deg, rgba(237, 243, 235, .96), rgba(247, 242, 231, .92)); box-shadow: 0 4px 14px rgba(44, 87, 68, .045); }
+.dark-shell .streak-entry-card { border-color: rgba(123, 158, 133, .22); background: linear-gradient(110deg, rgba(28, 48, 40, .92), rgba(48, 44, 32, .92)); box-shadow: 0 4px 16px rgba(0, 0, 0, .08); }
 .streak-orbit {
   display: grid;
   width: 84px;
