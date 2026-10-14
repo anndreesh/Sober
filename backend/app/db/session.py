@@ -4,8 +4,11 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from app.core.config import get_settings
 
 settings = get_settings()
-connect_args = {"check_same_thread": False} if settings.database_url.startswith('sqlite') else {}
-engine = create_engine(settings.database_url, connect_args=connect_args, future=True)
+database_url = settings.database_url
+if database_url.startswith('postgresql://'):
+    database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+connect_args = {"check_same_thread": False} if database_url.startswith('sqlite') else {}
+engine = create_engine(database_url, connect_args=connect_args, future=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
