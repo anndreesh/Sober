@@ -76,6 +76,12 @@
 .streak-orbit span { margin-top: 2px; color: #3f6655; font-size: .75rem; font-weight: 700; }
 .dark-shell .streak-orbit { background: rgba(11, 23, 18, .4); }
 .dark-shell .streak-orbit span { color: #d4e4d6; }
+.quote-card { position: relative; background: linear-gradient(145deg, #fbfcf8, #edf4eb 72%, #f8f0e3); }
+.dark-shell .quote-card { background: linear-gradient(145deg, #17251f, #1d3027 72%, #302b21); }
+.quote-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(73, 121, 98, .16); border-radius: 15px; color: #487664; background: rgba(255, 255, 255, .72); }
+.dark-shell .quote-mark { border-color: rgba(135, 174, 148, .2); color: #b5d4bd; background: rgba(9, 18, 14, .3); }
+.quote-text { min-height: 5rem; font-family: Georgia, 'Times New Roman', serif; font-size: 1.2rem; line-height: 1.65; animation: quote-in .3s ease both; }
+@keyframes quote-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 .chart-empty, .list-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #748078; }
 .chart-empty { gap: .45rem; }
 .chart-empty-mark { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 15px; color: #4b7c69; background: #edf3eb; }
@@ -130,4 +136,8 @@
 @media (prefers-reduced-motion: no-preference) {
   .app-nav-link, .mobile-nav-link, .metric-card, .dashboard-intro { transition: background-color .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease; }
   .metric-card:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(49, 61, 51, .075); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quote-text { animation: none; }
 }

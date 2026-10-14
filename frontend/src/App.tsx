@@ -6,6 +6,8 @@ import {
   Home,
   MoonStar,
   Plus,
+  Quote,
+  RefreshCw,
   Settings,
   Sparkles,
   Target,
@@ -27,6 +29,7 @@ import {
 } from 'recharts'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
+import { quotes } from './data/quotes'
 import { db } from './db/local-db'
 import { apiFetch, clearSession, getStoredSession, saveSession, type SessionData } from './lib/api-client'
 import { cn } from './lib/utils'
@@ -258,11 +261,45 @@ function Layout({ children, currentUser, onLogout, darkMode, onToggleDark, onOpe
 
 function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRecord }: { habits: Habit[]; journalEntries: JournalEntry[]; urgeLogs: UrgeLog[]; darkMode: boolean; onOpenNewRecord: () => void }) {
   const navigate = useNavigate()
+  const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * quotes.length))
   const longestStreakHabit = habits.reduce<Habit | undefined>(
     (longest, habit) => !longest || getStreakDays(habit.startDate) > getStreakDays(longest.startDate) ? habit : longest,
     undefined,
   )
   const currentStreak = longestStreakHabit ? getStreakDays(longestStreakHabit.startDate) : 0
+  const allStreaks = habits.flatMap((habit) => {
+    const currentStart = parseISO(habit.startDate)
+    const current = {
+      key: `${habit.id}-current`,
+      habitName: habit.name,
+      label: 'Racha actual',
+      days: getStreakDays(habit.startDate),
+      startDate: habit.startDate,
+      endDate: undefined as string | undefined,
+      isCurrent: true,
+    }
+    const previous = (habit.streakHistory ?? []).flatMap((period, index) => {
+      const start = parseISO(period.startDate)
+      const end = parseISO(period.endDate)
+      if (!isValid(start) || !isValid(end) || end < start) return []
+      return [{
+        key: `${habit.id}-previous-${index}`,
+        habitName: habit.name,
+        label: `Racha anterior ${index + 1}`,
+        days: differenceInCalendarDays(end, start) + 1,
+        startDate: period.startDate,
+        endDate: period.endDate,
+        isCurrent: false,
+      }]
+    })
+    return isValid(currentStart) ? [current, ...previous] : previous
+  })
+  const longestStreakDays = Math.max(0, ...allStreaks.map((streak) => streak.days))
+  const nextQuote = () => setQuoteIndex((current) => {
+    if (quotes.length < 2) return current
+    const next = Math.floor(Math.random() * (quotes.length - 1))
+    return next >= current ? next + 1 : next
+  })
   const weekActivity = Array.from({ length: 7 }, (_, index) => {
     const date = subDays(startOfDay(new Date()), 6 - index)
     const dateKey = format(date, 'yyyy-MM-dd')
@@ -296,7 +333,7 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Racha más larga', value: `${currentStreak} días`, accent: 'emerald', icon: Flame },
+          { label: 'Racha más larga', value: `${longestStreakDays} días`, accent: 'emerald', icon: Flame },
           { label: 'Hábitos', value: `${habits.length}`, accent: 'amber', icon: Target },
           { label: 'Notas de hoy', value: `${todayJournalCount}`, accent: 'violet', icon: BookOpenText },
           { label: 'Impulsos · 7 días', value: `${lastWeekUrges}`, accent: 'sky', icon: Zap },
@@ -329,6 +366,32 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
               <p className="mt-1 text-sm text-slate-600">{longestStreakHabit ? longestStreakHabit.title : 'Crea un hábito para comenzar a registrar tu proceso.'}</p>
             </div>
             <div className="streak-orbit" aria-hidden="true"><Flame className="h-7 w-7" /><span>{currentStreak}</span></div>
+          </div>
+
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Flame className="h-4 w-4 text-amber-500" />
+              <h4 className={cn('text-sm font-semibold', darkMode ? 'text-white' : 'text-slate-800')}>Todas tus rachas</h4>
+              <span className={cn('rounded-full px-2 py-0.5 text-xs', darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-500')}>{allStreaks.length}</span>
+            </div>
+            {allStreaks.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {allStreaks.map((streak) => (
+                  <div key={streak.key} className={cn('flex items-center justify-between gap-3 rounded-2xl border p-3.5', darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-white/70')}>
+                    <div className="min-w-0">
+                      <p className={cn('truncate text-sm font-medium', darkMode ? 'text-white' : 'text-slate-800')}>{streak.habitName}</p>
+                      <p className={cn('mt-0.5 text-xs', darkMode ? 'text-slate-400' : 'text-slate-500')}>
+                        {streak.label} · {isValid(parseISO(streak.startDate)) ? format(parseISO(streak.startDate), 'd MMM yyyy', { locale: es }) : 'Sin fecha'}
+                        {streak.endDate && isValid(parseISO(streak.endDate)) ? ` – ${format(parseISO(streak.endDate), 'd MMM yyyy', { locale: es })}` : ''}
+                      </p>
+                    </div>
+                    <span className={cn('shrink-0 rounded-xl px-3 py-2 text-sm font-semibold', streak.isCurrent ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200' : darkMode ? 'bg-slate-700 text-slate-200' : 'bg-amber-50 text-amber-800')}>
+                      {streak.days} {streak.days === 1 ? 'día' : 'días'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="list-empty min-h-24"><Target className="h-5 w-5" /><p>Aún no tienes rachas. Agrega un hábito para empezar.</p></div>}
           </div>
 
           <div className="h-56 w-full">
@@ -373,6 +436,23 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
                 </button>
               )) : <div className="list-empty"><Target className="h-5 w-5" /><p>Aún no agregas hábitos.</p><button type="button" onClick={onOpenNewRecord}>Elige un primer paso</button></div>}
             </div>
+          </Card>
+
+          <Card className={cn('quote-card overflow-hidden p-6', darkMode ? 'border-emerald-900/70 bg-slate-900/80' : 'border-emerald-100 bg-white/85')}>
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div>
+                <p className="eyebrow text-xs font-semibold uppercase tracking-[0.14em]">Un momento para ti</p>
+                <h3 className={cn('mt-1 text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Frases</h3>
+              </div>
+              <span className="quote-mark" aria-hidden="true"><Quote className="h-5 w-5" /></span>
+            </div>
+            <blockquote key={quoteIndex} className={cn('quote-text', darkMode ? 'text-slate-100' : 'text-slate-800')}>
+              “{quotes[quoteIndex][0]}”
+            </blockquote>
+            <p className={cn('mt-4 text-sm font-medium', darkMode ? 'text-emerald-200' : 'text-emerald-800')}>— {quotes[quoteIndex][1]}</p>
+            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-4 w-4" />} className={cn('mt-5', darkMode && 'border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700')} onClick={nextQuote}>
+              Otra frase
+            </Button>
           </Card>
 
         </div>
