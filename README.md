@@ -32,7 +32,7 @@ La configuración del repositorio está preparada para Vercel y Render:
 
 - **Supabase:** crea un proyecto PostgreSQL y copia la cadena **Session pooler** de `Connect`. Como Render puede necesitar IPv4, Session pooler evita depender de la conexión directa IPv6. Cambia el prefijo a `postgresql+psycopg://` antes de pegarla como `DATABASE_URL` en Render.
 - **Render:** crea un Blueprint desde este repositorio y confirma el servicio `sober-api`. Render pedirá `DATABASE_URL`; pega ahí la cadena de Supabase. El archivo define `SECRET_KEY` generado, comando de inicio y chequeo en `/health`.
-- **Vercel:** importa el repositorio desde GitHub, deja la raíz del proyecto en el repositorio y configura `VITE_API_URL` con la URL HTTPS del servicio Render, sin `/` al final. `vercel.json` instala y construye `frontend` y envía las rutas de React al `index.html`.
+- **Vercel:** importa el repositorio desde GitHub, establece la raíz del proyecto en `frontend` y configura `VITE_API_URL` con la URL HTTPS del servicio Render, sin `/` al final. `frontend/vercel.json` instala y construye la app, y envía las rutas de React al `index.html`.
 - Cuando ambos estén desplegados, verifica `https://<api-render>/health`, crea una cuenta en la URL de Vercel e inicia sesión.
 
 El backend guarda las cuentas y sus contraseñas con hash. Por ahora, hábitos, diario e impulsos se guardan en IndexedDB del navegador y no se sincronizan entre dispositivos ni con Supabase. Para sincronizarlos hace falta completar sus endpoints y modelos de usuario antes de activar esa función.
