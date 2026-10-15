@@ -21,7 +21,7 @@ import { addDays, differenceInCalendarDays, format, isValid, parseISO, startOfDa
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
-import { DatePicker } from './components/ui/date-picker'
+import { DatePicker, TimePicker } from './components/ui/date-picker'
 import { quotes } from './data/quotes'
 import { db } from './db/local-db'
 import { apiFetch, clearSession, getStoredSession, saveSession, type SessionData } from './lib/api-client'
@@ -69,6 +69,7 @@ type HabitForm = {
   description: string
   reason: string
   startDate: string
+  startTime: string
 }
 
 type HabitChartRange = 'week' | 'month' | 'year' | 'all'
@@ -100,9 +101,15 @@ function getArchivedStreaks(habit: Habit, endedAt = new Date()) {
   }]
 }
 
-function startAtForSelectedDate(date: string, now = new Date()) {
+function startAtForSelectedDate(date: string, time = format(new Date(), 'HH:mm:ss')) {
   const [year, month, day] = date.split('-').map(Number)
-  return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).toISOString()
+  const [hour, minute, second] = time.split(':').map(Number)
+  return new Date(year, month - 1, day, hour, minute, second).toISOString()
+}
+
+function localStartTime(startAt: string | undefined) {
+  const start = startAt ? parseISO(startAt) : undefined
+  return start && isValid(start) ? format(start, 'HH:mm:ss') : '00:00:00'
 }
 
 function useCurrentTime() {
@@ -706,15 +713,14 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
 }
 
 function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabits: React.Dispatch<React.SetStateAction<Habit[]>>; darkMode: boolean }) {
-  const [form, setForm] = useState<HabitForm>({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd') })
+  const [form, setForm] = useState<HabitForm>({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd'), startTime: format(new Date(), 'HH:mm:ss') })
   const [editingId, setEditingId] = useState<number | null>(null)
 
   const saveHabit = async () => {
     const name = form.title.trim() || 'Nuevo hábito'
     const existingHabit = editingId ? habits.find((habit) => habit.id === editingId) : undefined
-    const startedAt = existingHabit && form.startDate === existingHabit.startDate
-      ? existingHabit.startAt || startAtForSelectedDate(form.startDate, new Date(2000, 0, 1))
-      : startAtForSelectedDate(form.startDate)
+    const keepsStart = existingHabit && form.startDate === existingHabit.startDate && form.startTime === localStartTime(existingHabit.startAt)
+    const startedAt = keepsStart ? existingHabit.startAt || startAtForSelectedDate(form.startDate, form.startTime) : startAtForSelectedDate(form.startDate, form.startTime)
     const payload: Habit = {
       id: editingId ?? Date.now(),
       name,
@@ -738,7 +744,7 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
       return
     }
 
-    setForm({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd') })
+    setForm({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd'), startTime: format(new Date(), 'HH:mm:ss') })
     setEditingId(null)
   }
 
@@ -779,6 +785,7 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
       description: habit.description,
       reason: habit.reason,
       startDate: habit.startDate || format(new Date(), 'yyyy-MM-dd'),
+      startTime: localStartTime(habit.startAt),
     })
   }
 
@@ -823,6 +830,7 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
           <label className={cn('block text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>
             Fecha de inicio
             <DatePicker value={form.startDate} onChange={(startDate) => setForm((current) => ({ ...current, startDate }))} darkMode={darkMode} label="Fecha de inicio del hábito" />
+            <TimePicker value={form.startTime} onChange={(startTime) => setForm((current) => ({ ...current, startTime }))} darkMode={darkMode} />
           </label>
           <Button className="w-full" onClick={saveHabit}>{editingId ? 'Guardar cambios' : 'Guardar hábito'}</Button>
         </div>
@@ -1055,7 +1063,7 @@ function SettingsPage({ user, onLogout, darkMode }: { user?: SessionData['user']
 
 function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCreateUrge, darkMode }: { habits: Habit[]; onClose: () => void; onCreateHabit: (form: HabitForm) => Promise<void>; onCreateJournal: (payload: { date: string; mood: string; note: string; triggers: string; habitId: number }) => Promise<void>; onCreateUrge: (payload: { habitId: number; trigger: string; intensity: string; coping: string }) => Promise<void>; darkMode: boolean }) {
   const [tab, setTab] = useState<NewRecordMode>('habit')
-  const [habitForm, setHabitForm] = useState<HabitForm>({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd') })
+  const [habitForm, setHabitForm] = useState<HabitForm>({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd'), startTime: format(new Date(), 'HH:mm:ss') })
   const [journalForm, setJournalForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), mood: 'calma', note: '', triggers: 'estrés, cansancio', habitId: habits[0]?.id ?? 1 })
   const [urgeForm, setUrgeForm] = useState({ habitId: habits[0]?.id ?? 1, trigger: '', intensity: '6', coping: 'Respiración 4-6' })
 
@@ -1083,6 +1091,7 @@ function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCre
             <label className={cn('block text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>
               Fecha de inicio
               <DatePicker value={habitForm.startDate} onChange={(startDate) => setHabitForm((current) => ({ ...current, startDate }))} darkMode={darkMode} label="Fecha de inicio del hábito" />
+              <TimePicker value={habitForm.startTime} onChange={(startTime) => setHabitForm((current) => ({ ...current, startTime }))} darkMode={darkMode} />
             </label>
             <Button className="w-full" onClick={async () => { try { await onCreateHabit(habitForm); onClose() } catch (error) { window.alert(error instanceof Error ? `No se pudo guardar el hábito: ${error.message}` : 'No se pudo guardar el hábito') } }}>Guardar hábito</Button>
           </div>
@@ -1169,8 +1178,8 @@ function App() {
         ])
         setHabits(remoteHabits.map((habit) => ({
           ...habit,
-          startAt: habit.startAt || startAtForSelectedDate(habit.startDate, new Date(2000, 0, 1)),
-          streak: getStreakDays(habit.startAt || startAtForSelectedDate(habit.startDate, new Date(2000, 0, 1)), habit.startDate),
+          startAt: habit.startAt || startAtForSelectedDate(habit.startDate, '00:00:00'),
+          streak: getStreakDays(habit.startAt || startAtForSelectedDate(habit.startDate, '00:00:00'), habit.startDate),
           firstStartDate: habit.firstStartDate || habit.streakHistory?.[0]?.startDate || habit.startDate,
           streakHistory: habit.streakHistory ?? [],
         })))
@@ -1191,7 +1200,7 @@ function App() {
 
   const handleCreateHabit = async (form: HabitForm) => {
     const title = form.title.trim() || 'Nuevo hábito'
-    const startAt = startAtForSelectedDate(form.startDate)
+    const startAt = startAtForSelectedDate(form.startDate, form.startTime)
     const newHabit: Habit = {
       id: Date.now(),
       name: title,
