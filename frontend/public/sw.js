@@ -1,5 +1,5 @@
-const CACHE_NAME = 'sober-free-web-v3'
-const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest']
+const CACHE_NAME = 'sober-free-web-v4'
+const APP_SHELL = ['/', '/index.html', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))
