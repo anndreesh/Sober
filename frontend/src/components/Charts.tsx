@@ -45,8 +45,11 @@ export function HabitProgressChart({ data, darkMode, interval }: ThemeProps & { 
         <CartesianGrid strokeDasharray="3 3" stroke={stroke} />
         <XAxis dataKey="date" tickLine={false} axisLine={false} interval={interval} tick={axisStyle(darkMode)} />
         <YAxis tickLine={false} axisLine={false} tick={axisStyle(darkMode)} domain={[0, 100]} ticks={[0, 100]} />
-        <Tooltip contentStyle={{ borderRadius: 12, borderColor: stroke, backgroundColor: darkMode ? '#19251e' : '#fbfaf6' }} />
-        <Area type="stepAfter" dataKey="value" name="Cumplimiento" stroke="#42694b" strokeWidth={3} fill="url(#habitProgressFill)" />
+        <Tooltip
+          labelFormatter={(label, payload) => `${label} · ${payload[0]?.payload?.status ?? 'Racha'}`}
+          contentStyle={{ borderRadius: 12, borderColor: stroke, backgroundColor: darkMode ? '#19251e' : '#fbfaf6' }}
+        />
+        <Area type="stepAfter" dataKey="value" name="Racha" stroke="#42694b" strokeWidth={3} fill="url(#habitProgressFill)" activeDot={{ r: 5 }} />
       </AreaChart>
     </ResponsiveContainer>
   )

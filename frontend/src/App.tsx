@@ -2,12 +2,15 @@ import { lazy, Suspense, useEffect, useState, type FormEvent, type ReactNode } f
 import { es } from 'date-fns/locale'
 import {
   BookOpenText,
+  Clock3,
   Flame,
+  History,
   Home,
   MoonStar,
   Plus,
   Quote,
   RefreshCw,
+  RotateCcw,
   Settings,
   Sparkles,
   Target,
@@ -33,8 +36,9 @@ type Habit = {
   streak: number
   completed: number
   startDate: string
+  startAt?: string
   firstStartDate: string
-  streakHistory: { startDate: string; endDate: string }[]
+  streakHistory: { startDate: string; endDate: string; startAt?: string; endAt?: string }[]
   color: string
 }
 
@@ -74,23 +78,55 @@ const HabitProgressChart = lazy(() => import('./components/Charts').then((charts
 const WeeklyJournalChart = lazy(() => import('./components/Charts').then((charts) => ({ default: charts.WeeklyJournalChart })))
 const HabitStreakChart = lazy(() => import('./components/Charts').then((charts) => ({ default: charts.HabitStreakChart })))
 
-function getStreakDays(startDate: string, today = new Date()) {
-  const start = parseISO(startDate)
-  if (!isValid(start)) return 0
-
-  const elapsedDays = differenceInCalendarDays(startOfDay(today), startOfDay(start))
-  return elapsedDays < 0 ? 0 : elapsedDays + 1
+function getStartAt(startAt: string | undefined, startDate: string) {
+  const start = startAt ? parseISO(startAt) : parseISO(`${startDate}T00:00:00`)
+  return start
 }
 
-function getArchivedStreaks(habit: Habit, today = new Date()) {
-  const start = parseISO(habit.startDate)
-  if (!isValid(start) || startOfDay(start) > startOfDay(today)) return habit.streakHistory
+function getStreakDays(startAt: string | undefined, startDate: string, now = new Date()) {
+  const start = getStartAt(startAt, startDate)
+  if (!(start instanceof Date) || !isValid(start)) return 0
+  return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000))
+}
 
-  const endDate = format(
-    startOfDay(start) >= startOfDay(today) ? startOfDay(today) : subDays(startOfDay(today), 1),
-    'yyyy-MM-dd',
-  )
-  return [...habit.streakHistory, { startDate: habit.startDate, endDate }]
+function getArchivedStreaks(habit: Habit, endedAt = new Date()) {
+  const start = getStartAt(habit.startAt, habit.startDate)
+  if (!isValid(start) || start > endedAt) return habit.streakHistory ?? []
+  return [...(habit.streakHistory ?? []), {
+    startDate: format(start, 'yyyy-MM-dd'),
+    endDate: format(endedAt, 'yyyy-MM-dd'),
+    startAt: start.toISOString(),
+    endAt: endedAt.toISOString(),
+  }]
+}
+
+function startAtForSelectedDate(date: string, now = new Date()) {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).toISOString()
+}
+
+function useCurrentTime() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return now
+}
+
+function durationLabel(milliseconds: number) {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000))
+  const days = Math.floor(seconds / 86_400)
+  const hours = Math.floor((seconds % 86_400) / 3_600)
+  const minutes = Math.floor((seconds % 3_600) / 60)
+  const remainingSeconds = seconds % 60
+  return [
+    days ? `${days} ${days === 1 ? 'día' : 'días'}` : '',
+    hours ? `${hours} h` : '',
+    minutes ? `${minutes} min` : '',
+    remainingSeconds ? `${remainingSeconds} s` : '',
+    !days && !hours && !minutes && !remainingSeconds ? '0 s' : '',
+  ].filter(Boolean).join(' · ')
 }
 
 function AuthScreen({ onAuth }: { onAuth: (session: SessionData) => void }) {
@@ -275,31 +311,32 @@ function Layout({ children, currentUser, onLogout, darkMode, onToggleDark, onOpe
 
 function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRecord }: { habits: Habit[]; journalEntries: JournalEntry[]; urgeLogs: UrgeLog[]; darkMode: boolean; onOpenNewRecord: () => void }) {
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * quotes.length))
+  const now = useCurrentTime()
   const longestStreakHabit = habits.reduce<Habit | undefined>(
-    (longest, habit) => !longest || getStreakDays(habit.startDate) > getStreakDays(longest.startDate) ? habit : longest,
+    (longest, habit) => !longest || getStreakDays(habit.startAt, habit.startDate, now) > getStreakDays(longest.startAt, longest.startDate, now) ? habit : longest,
     undefined,
   )
-  const currentStreak = longestStreakHabit ? getStreakDays(longestStreakHabit.startDate) : 0
+  const currentStreak = longestStreakHabit ? getStreakDays(longestStreakHabit.startAt, longestStreakHabit.startDate, now) : 0
   const allStreaks = habits.flatMap((habit) => {
-    const currentStart = parseISO(habit.startDate)
+    const currentStart = getStartAt(habit.startAt, habit.startDate)
     const current = {
       key: `${habit.id}-current`,
       habitName: habit.name,
       label: 'Racha actual',
-      days: getStreakDays(habit.startDate),
+      days: getStreakDays(habit.startAt, habit.startDate, now),
       startDate: habit.startDate,
       endDate: undefined as string | undefined,
       isCurrent: true,
     }
     const previous = (habit.streakHistory ?? []).flatMap((period, index) => {
-      const start = parseISO(period.startDate)
-      const end = parseISO(period.endDate)
+      const start = period.startAt ? parseISO(period.startAt) : parseISO(`${period.startDate}T00:00:00`)
+      const end = period.endAt ? parseISO(period.endAt) : parseISO(`${period.endDate}T23:59:59`)
       if (!isValid(start) || !isValid(end) || end < start) return []
       return [{
         key: `${habit.id}-previous-${index}`,
         habitName: habit.name,
         label: `Racha anterior ${index + 1}`,
-        days: differenceInCalendarDays(end, start) + 1,
+        days: Math.floor((end.getTime() - start.getTime()) / 86_400_000),
         startDate: period.startDate,
         endDate: period.endDate,
         isCurrent: false,
@@ -446,10 +483,8 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
   const navigate = useNavigate()
   const { habitId } = useParams()
   const [chartRange, setChartRange] = useState<HabitChartRange>('week')
-  const [today, setToday] = useState(() => startOfDay(new Date()))
-
+  const now = useCurrentTime()
   useEffect(() => {
-    setToday(startOfDay(new Date()))
     setChartRange('week')
   }, [habitId])
 
@@ -459,58 +494,63 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
     return <Card className={cn('p-10 text-center', darkMode ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')}>No se encontró el hábito.</Card>
   }
 
-  const habitStart = startOfDay(parseISO(habit.startDate))
+  const habitStart = getStartAt(habit.startAt, habit.startDate)
   const relatedJournal = journalEntries.filter((entry) => entry.habitId === habit.id)
   const relatedUrges = urgeLogs.filter((urge) => urge.habitId === habit.id)
   const lastAttempt = habit.streakHistory?.at(-1)
   const historyPeriods = habit.streakHistory ?? []
   const streakPeriods = [
     ...(habit.streakHistory ?? []).map((period, index) => ({
-      start: startOfDay(parseISO(period.startDate)),
-      end: startOfDay(parseISO(period.endDate)),
+      start: period.startAt ? parseISO(period.startAt) : parseISO(`${period.startDate}T00:00:00`),
+      end: period.endAt ? parseISO(period.endAt) : parseISO(`${period.endDate}T23:59:59.999`),
       status: `Racha anterior ${index + 1}`,
     })),
-    { start: habitStart, end: today, status: 'Racha actual' },
-  ].filter((period) => isValid(period.start) && isValid(period.end) && period.start <= today && period.end >= period.start)
+    { start: habitStart, end: now, status: 'Racha actual' },
+  ].filter((period) => isValid(period.start) && isValid(period.end) && period.start <= now && period.end >= period.start)
   const earliestStart = streakPeriods.reduce(
     (earliest, period) => period.start < earliest ? period.start : earliest,
     habitStart,
   )
   const rangeStart = chartRange === 'week'
-    ? subDays(today, 6)
+    ? subDays(startOfDay(now), 6)
     : chartRange === 'month'
-      ? subMonths(today, 1)
+      ? subMonths(now, 1)
       : chartRange === 'year'
-        ? subYears(today, 1)
+        ? subYears(now, 1)
         : earliestStart
   const chartStart = earliestStart > rangeStart ? earliestStart : rangeStart
-  const chartDays = isValid(habitStart) ? differenceInCalendarDays(today, chartStart) + 1 : 0
+  const chartDays = isValid(habitStart) ? differenceInCalendarDays(now, chartStart) + 1 : 0
   const chartStep = chartRange === 'year' || chartRange === 'all'
     ? Math.max(1, Math.ceil(chartDays / 180))
     : 1
-  const sampledDays = new Set<number>()
-  for (let dayIndex = 0; dayIndex < chartDays; dayIndex += chartStep) sampledDays.add(dayIndex)
-  if (chartDays > 0) sampledDays.add(chartDays - 1)
-
+  const sampledTimes = new Set<number>()
+  for (let dayIndex = 0; dayIndex < chartDays; dayIndex += chartStep) {
+    const point = startOfDay(addDays(chartStart, dayIndex))
+    if (point <= now) sampledTimes.add(point.getTime())
+  }
+  sampledTimes.add(now.getTime())
   streakPeriods.forEach((period) => {
-    const startIndex = differenceInCalendarDays(period.start, chartStart)
-    const endIndex = differenceInCalendarDays(period.end, chartStart)
-    if (startIndex >= 0 && startIndex < chartDays) sampledDays.add(startIndex)
-    if (endIndex >= 0 && endIndex < chartDays) sampledDays.add(endIndex)
+    if (period.start >= chartStart && period.start <= now) sampledTimes.add(period.start.getTime())
+    if (period.end >= chartStart && period.end <= now) sampledTimes.add(period.end.getTime())
+    for (let threshold = period.start.getTime() + 86_400_000; threshold < period.end.getTime() && threshold <= now.getTime(); threshold += 86_400_000) {
+      if (threshold >= chartStart.getTime()) sampledTimes.add(threshold)
+    }
   })
 
   const chartData: { date: string; value: number; status: string }[] = chartDays > 0
-    ? [...sampledDays].sort((left, right) => left - right).map((dayIndex) => {
-      const date = addDays(chartStart, dayIndex)
-      const period = streakPeriods.find(({ start, end }) => date >= start && date <= end)
+    ? [...sampledTimes].sort((left, right) => left - right).map((timestamp) => {
+      const instant = new Date(timestamp)
+      const period = streakPeriods.find(({ start, end }) => instant >= start && instant < end)
+      const elapsed = period ? instant.getTime() - period.start.getTime() : 0
+      const fullDays = Math.floor(elapsed / 86_400_000)
       return {
-        date: format(date, 'dd MMM yyyy'),
-        value: period ? 100 : 0,
+        date: format(instant, chartDays > 14 ? 'd MMM' : 'd MMM HH:mm'),
+        value: period && fullDays > 0 ? 100 : 0,
         status: period
-          ? period.start.getTime() === date.getTime()
-            ? `${period.status} · inicio`
-            : period.status
-          : 'Sin racha',
+          ? fullDays > 0
+            ? `${period.status} · ${fullDays} ${fullDays === 1 ? 'día' : 'días'} completos`
+            : `${period.status} · ${durationLabel(elapsed)} transcurridos`
+          : 'Racha reiniciada',
       }
     })
     : []
@@ -534,7 +574,7 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
 
           <div className={cn('rounded-2xl px-4 py-3 text-center', darkMode ? 'bg-slate-800 text-white' : 'bg-emerald-50 text-emerald-800')}>
             <p className="text-xs uppercase tracking-[0.2em]">Racha</p>
-            <p className="text-3xl font-semibold">{getStreakDays(habit.startDate)}</p>
+            <p className="text-3xl font-semibold">{getStreakDays(habit.startAt, habit.startDate, now)}</p>
             <p className="text-xs">días</p>
           </div>
         </div>
@@ -545,13 +585,18 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
           <p className={cn('mt-2 text-2xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>{habit.firstStartDate ? format(parseISO(habit.firstStartDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
         </div>
 
-        {lastAttempt && <div className={cn('mt-4 rounded-2xl border px-4 py-3', darkMode ? 'border-amber-400/20 bg-amber-400/10 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-900')}>
-          <p className="text-sm font-semibold">Último intento: {format(parseISO(lastAttempt.startDate), 'd MMMM yyyy', { locale: es })}</p>
+        {lastAttempt && <div className={cn('relative mt-4 overflow-hidden rounded-[24px] border p-5 shadow-sm', darkMode ? 'border-orange-300/15 bg-gradient-to-br from-[#3a251d] via-[#2d211c] to-slate-900 text-orange-100' : 'border-orange-200/80 bg-gradient-to-br from-[#fff2e3] via-[#fff8ef] to-white text-[#713d22]')}>
+          <div className="pointer-events-none absolute -right-7 -top-10 h-32 w-32 rounded-full bg-orange-400/10 blur-2xl" />
+          <div className="relative flex items-center gap-4">
+            <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-inner', darkMode ? 'bg-orange-300/10 text-orange-200' : 'bg-white/80 text-orange-700')}><History className="h-5 w-5" /></div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] font-bold uppercase tracking-[0.2em] opacity-75">Último intento</p><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider', darkMode ? 'bg-orange-200/10 text-orange-200' : 'bg-orange-100 text-orange-800')}>Etapa {historyPeriods.length}</span></div>
+              <p className="mt-1 flex items-center gap-2 text-base font-semibold"><Clock3 className="h-4 w-4 opacity-65" />{format(lastAttempt.startAt ? parseISO(lastAttempt.startAt) : parseISO(`${lastAttempt.startDate}T00:00:00`), 'd MMMM yyyy · HH:mm:ss', { locale: es })}</p>
+              <p className="mt-1 text-sm opacity-70">Duró {durationLabel(lastAttempt.startAt && lastAttempt.endAt ? parseISO(lastAttempt.endAt).getTime() - parseISO(lastAttempt.startAt).getTime() : Math.max(0, differenceInCalendarDays(parseISO(lastAttempt.endDate), parseISO(lastAttempt.startDate)) + 1) * 86_400_000)}</p>
+            </div>
+            <RotateCcw className="hidden h-5 w-5 shrink-0 opacity-50 sm:block" />
+          </div>
         </div>}
-        <div className={cn('rounded-2xl p-4', darkMode ? 'bg-slate-800' : 'bg-slate-50')}>
-          <p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Racha</p>
-          <p className={cn('mt-2 text-2xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>{getStreakDays(habit.startDate)} días</p>
-        </div>
         </div>
 
         <div className="mt-6 grid gap-6 xl:grid-cols-2">
@@ -573,16 +618,16 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
         </div>
         <div className="space-y-3">
           <div className={cn('flex items-center justify-between gap-4 rounded-2xl border p-4', darkMode ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-emerald-100 bg-emerald-50/70')}>
-            <div><p className={cn('font-medium', darkMode ? 'text-emerald-200' : 'text-emerald-900')}>Etapa actual</p><p className={cn('mt-1 text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>Desde {format(parseISO(habit.startDate), 'd MMM yyyy', { locale: es })}</p></div>
-            <span className={cn('shrink-0 text-sm font-semibold', darkMode ? 'text-emerald-200' : 'text-emerald-800')}>{getStreakDays(habit.startDate)} días</span>
+            <div><p className={cn('font-medium', darkMode ? 'text-emerald-200' : 'text-emerald-900')}>Etapa actual</p><p className={cn('mt-1 text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>Desde {format(habitStart, 'd MMM yyyy · HH:mm:ss', { locale: es })}</p></div>
+            <span className={cn('shrink-0 text-sm font-semibold', darkMode ? 'text-emerald-200' : 'text-emerald-800')}>{durationLabel(now.getTime() - habitStart.getTime())}</span>
           </div>
           {[...historyPeriods].reverse().map((period, index) => {
-            const start = parseISO(period.startDate)
-            const end = parseISO(period.endDate)
-            const duration = isValid(start) && isValid(end) ? Math.max(1, differenceInCalendarDays(end, start) + 1) : 0
+            const start = period.startAt ? parseISO(period.startAt) : parseISO(`${period.startDate}T00:00:00`)
+            const end = period.endAt ? parseISO(period.endAt) : parseISO(`${period.endDate}T23:59:59.999`)
+            const duration = isValid(start) && isValid(end) ? Math.max(0, end.getTime() - start.getTime()) : 0
             return <div key={`${period.startDate}-${period.endDate}-${index}`} className={cn('flex items-center justify-between gap-4 rounded-2xl border p-4', darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-white')}>
-              <div><p className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>Intento finalizado</p><p className={cn('mt-1 text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>{format(start, 'd MMM yyyy', { locale: es })} – {format(end, 'd MMM yyyy', { locale: es })}</p></div>
-              <span className={cn('shrink-0 text-sm font-semibold', darkMode ? 'text-slate-200' : 'text-slate-700')}>{duration} {duration === 1 ? 'día' : 'días'}</span>
+              <div><p className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>Intento finalizado</p><p className={cn('mt-1 text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>{format(start, 'd MMM yyyy · HH:mm:ss', { locale: es })} – {format(end, 'd MMM yyyy · HH:mm:ss', { locale: es })}</p></div>
+              <span className={cn('shrink-0 text-right text-sm font-semibold', darkMode ? 'text-slate-200' : 'text-slate-700')}>{durationLabel(duration)}</span>
             </div>
           })}
           {!historyPeriods.length && <p className={cn('rounded-2xl border border-dashed p-4 text-sm', darkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-500')}>Aquí aparecerán tus etapas anteriores cuando reinicies el hábito.</p>}
@@ -666,18 +711,23 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
 
   const saveHabit = async () => {
     const name = form.title.trim() || 'Nuevo hábito'
+    const existingHabit = editingId ? habits.find((habit) => habit.id === editingId) : undefined
+    const startedAt = existingHabit && form.startDate === existingHabit.startDate
+      ? existingHabit.startAt || startAtForSelectedDate(form.startDate, new Date(2000, 0, 1))
+      : startAtForSelectedDate(form.startDate)
     const payload: Habit = {
       id: editingId ?? Date.now(),
       name,
       title: name,
       description: form.description.trim() || 'Sin descripción',
       reason: form.reason.trim() || 'Porque me ayuda a cuidar de mí.',
-      streak: getStreakDays(form.startDate),
-      completed: editingId ? habits.find((habit) => habit.id === editingId)?.completed ?? 0 : 0,
+      streak: getStreakDays(startedAt, form.startDate),
+      completed: existingHabit?.completed ?? 0,
       startDate: form.startDate || format(new Date(), 'yyyy-MM-dd'),
-      firstStartDate: editingId ? habits.find((habit) => habit.id === editingId)?.firstStartDate || habits.find((habit) => habit.id === editingId)?.streakHistory?.[0]?.startDate || habits.find((habit) => habit.id === editingId)?.startDate || form.startDate : form.startDate,
-      streakHistory: editingId ? habits.find((habit) => habit.id === editingId)?.streakHistory ?? [] : [],
-      color: editingId ? habits.find((habit) => habit.id === editingId)?.color ?? 'from-emerald-500 to-teal-500' : 'from-emerald-500 to-teal-500',
+      startAt: startedAt,
+      firstStartDate: existingHabit ? existingHabit.firstStartDate || existingHabit.streakHistory?.[0]?.startDate || existingHabit.startDate : form.startDate,
+      streakHistory: existingHabit?.streakHistory ?? [],
+      color: existingHabit?.color ?? 'from-emerald-500 to-teal-500',
     }
 
     try {
@@ -695,13 +745,15 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
   const resetHabit = async (id: number) => {
     const updated = habits.find((habit) => habit.id === id)
     if (!updated) return
+    const restartedAt = new Date()
     const payload = {
       ...updated,
-      streak: 1,
+      streak: 0,
       completed: 0,
       firstStartDate: updated.firstStartDate || updated.streakHistory?.[0]?.startDate || updated.startDate,
-      streakHistory: getArchivedStreaks(updated),
-      startDate: format(new Date(), 'yyyy-MM-dd'),
+      streakHistory: getArchivedStreaks(updated, restartedAt),
+      startDate: format(restartedAt, 'yyyy-MM-dd'),
+      startAt: restartedAt.toISOString(),
     }
     try {
       await apiFetch('/api/v1/habits', { method: 'PUT', body: JSON.stringify(payload) })
@@ -929,7 +981,7 @@ function StatisticsPage({ darkMode, habits, journalEntries, urgeLogs }: { darkMo
 
   const habitStreaks = habits.map((habit) => ({
     name: habit.title,
-    days: getStreakDays(habit.startDate),
+    days: getStreakDays(habit.startAt, habit.startDate),
   }))
   const hasWeeklyActivity = weekly.some((day) => day.journalCount > 0 || day.urgeCount > 0)
 
@@ -1117,7 +1169,8 @@ function App() {
         ])
         setHabits(remoteHabits.map((habit) => ({
           ...habit,
-          streak: getStreakDays(habit.startDate),
+          startAt: habit.startAt || startAtForSelectedDate(habit.startDate, new Date(2000, 0, 1)),
+          streak: getStreakDays(habit.startAt || startAtForSelectedDate(habit.startDate, new Date(2000, 0, 1)), habit.startDate),
           firstStartDate: habit.firstStartDate || habit.streakHistory?.[0]?.startDate || habit.startDate,
           streakHistory: habit.streakHistory ?? [],
         })))
@@ -1138,15 +1191,17 @@ function App() {
 
   const handleCreateHabit = async (form: HabitForm) => {
     const title = form.title.trim() || 'Nuevo hábito'
+    const startAt = startAtForSelectedDate(form.startDate)
     const newHabit: Habit = {
       id: Date.now(),
       name: title,
       title,
       description: form.description.trim() || 'Sin descripción',
       reason: form.reason.trim() || 'Porque me ayuda a cuidarme.',
-      streak: getStreakDays(form.startDate),
+      streak: getStreakDays(startAt, form.startDate),
       completed: 0,
       startDate: form.startDate || format(new Date(), 'yyyy-MM-dd'),
+      startAt,
       firstStartDate: form.startDate || format(new Date(), 'yyyy-MM-dd'),
       streakHistory: [],
       color: 'from-emerald-500 to-teal-500',

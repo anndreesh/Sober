@@ -21,6 +21,8 @@ with engine.begin() as connection:
     columns = {column['name'] for column in inspect(connection).get_columns('habits')}
     if 'first_start_date' not in columns:
         connection.execute(text('ALTER TABLE habits ADD COLUMN first_start_date VARCHAR(10)'))
+    if 'start_at' not in columns:
+        connection.execute(text('ALTER TABLE habits ADD COLUMN start_at VARCHAR(40)'))
 
 app = FastAPI(title='Sober Free Web API', version='0.1.0')
 
