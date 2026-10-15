@@ -4,10 +4,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api.v1 import auth, community, dashboard, habits, journal, statistics, urges
+from app.api.v1 import auth, community, dashboard, records, statistics
 from app.core.config import get_settings
 from app.db.session import Base, engine
 from app.models.user import User  # noqa: F401
+from app.models.records import HabitRecord, JournalRecord, UrgeRecord  # noqa: F401
 from app.schemas.common import StatusResponse
 
 settings = get_settings()
@@ -29,9 +30,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix='/api/v1')
 app.include_router(dashboard.router, prefix='/api/v1')
-app.include_router(habits.router, prefix='/api/v1')
-app.include_router(journal.router, prefix='/api/v1')
-app.include_router(urges.router, prefix='/api/v1')
+app.include_router(records.router, prefix='/api/v1')
 app.include_router(statistics.router, prefix='/api/v1')
 app.include_router(community.router, prefix='/api/v1')
 

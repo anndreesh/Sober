@@ -81,3 +81,15 @@ def me(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Usuario no encontrado')
     return UserResponse(id=user.id, name=user.name, username=user.username, email=user.email, is_active=user.is_active)
+
+
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    authorization = request.headers.get('authorization', '')
+    scheme, _, token = authorization.partition(' ')
+    user_id = verify_session_token(token) if scheme.lower() == 'bearer' else None
+    if not user_id or not user_id.isdigit():
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Sesión inválida o vencida')
+    user = db.query(User).filter(User.id == int(user_id), User.is_active.is_(True)).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Usuario no encontrado')
+    return user

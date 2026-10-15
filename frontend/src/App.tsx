@@ -617,11 +617,11 @@ function HabitDetailPage({ habits, darkMode }: { habits: Habit[]; darkMode: bool
   )
 }
 
-function HabitsPage({ habits, setHabits, darkMode, userId }: { habits: Habit[]; setHabits: React.Dispatch<React.SetStateAction<Habit[]>>; darkMode: boolean; userId?: number }) {
+function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabits: React.Dispatch<React.SetStateAction<Habit[]>>; darkMode: boolean }) {
   const [form, setForm] = useState<HabitForm>({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd') })
   const [editingId, setEditingId] = useState<number | null>(null)
 
-  const saveHabit = () => {
+  const saveHabit = async () => {
     const name = form.title.trim() || 'Nuevo hábito'
     const payload: Habit = {
       id: editingId ?? Date.now(),
@@ -636,47 +636,43 @@ function HabitsPage({ habits, setHabits, darkMode, userId }: { habits: Habit[]; 
       color: editingId ? habits.find((habit) => habit.id === editingId)?.color ?? 'from-emerald-500 to-teal-500' : 'from-emerald-500 to-teal-500',
     }
 
-    setHabits((current) => {
-      const next = editingId !== null ? current.map((habit) => (habit.id === editingId ? payload : habit)) : [payload, ...current]
-      if (userId) {
-        void db.habits.put({ ...payload, userId })
-      }
-      return next
-    })
+    try {
+      await apiFetch('/api/v1/habits', { method: 'PUT', body: JSON.stringify(payload) })
+      setHabits((current) => editingId !== null ? current.map((habit) => (habit.id === editingId ? payload : habit)) : [payload, ...current])
+    } catch (error) {
+      window.alert(error instanceof Error ? `No se pudo guardar el hábito: ${error.message}` : 'No se pudo guardar el hábito')
+      return
+    }
 
     setForm({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd') })
     setEditingId(null)
   }
 
-  const resetHabit = (id: number) => {
-    setHabits((current) => {
-      const next = current.map((habit) => (habit.id === id
-        ? {
-          ...habit,
-          streak: 1,
-          completed: 0,
-          streakHistory: getArchivedStreaks(habit),
-          startDate: format(new Date(), 'yyyy-MM-dd'),
-        }
-        : habit))
-      if (userId) {
-        const updated = next.find((habit) => habit.id === id)
-        if (updated) {
-          void db.habits.put({ ...updated, userId })
-        }
-      }
-      return next
-    })
+  const resetHabit = async (id: number) => {
+    const updated = habits.find((habit) => habit.id === id)
+    if (!updated) return
+    const payload = {
+      ...updated,
+      streak: 1,
+      completed: 0,
+      streakHistory: getArchivedStreaks(updated),
+      startDate: format(new Date(), 'yyyy-MM-dd'),
+    }
+    try {
+      await apiFetch('/api/v1/habits', { method: 'PUT', body: JSON.stringify(payload) })
+      setHabits((current) => current.map((habit) => habit.id === id ? payload : habit))
+    } catch (error) {
+      window.alert(error instanceof Error ? `No se pudo reiniciar la racha: ${error.message}` : 'No se pudo reiniciar la racha')
+    }
   }
 
-  const deleteHabit = (id: number) => {
-    setHabits((current) => {
-      const next = current.filter((habit) => habit.id !== id)
-      if (userId) {
-        void db.habits.delete(id)
-      }
-      return next
-    })
+  const deleteHabit = async (id: number) => {
+    try {
+      await apiFetch(`/api/v1/habits/${id}`, { method: 'DELETE' })
+      setHabits((current) => current.filter((habit) => habit.id !== id))
+    } catch (error) {
+      window.alert(error instanceof Error ? `No se pudo eliminar el hábito: ${error.message}` : 'No se pudo eliminar el hábito')
+    }
   }
 
   const startEdit = (habit: Habit) => {
@@ -737,10 +733,10 @@ function HabitsPage({ habits, setHabits, darkMode, userId }: { habits: Habit[]; 
   )
 }
 
-function JournalPage({ habits, journalEntries, setJournalEntries, darkMode, userId }: { habits: Habit[]; journalEntries: JournalEntry[]; setJournalEntries: React.Dispatch<React.SetStateAction<JournalEntry[]>>; darkMode: boolean; userId?: number }) {
+function JournalPage({ habits, journalEntries, setJournalEntries, darkMode }: { habits: Habit[]; journalEntries: JournalEntry[]; setJournalEntries: React.Dispatch<React.SetStateAction<JournalEntry[]>>; darkMode: boolean }) {
   const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), mood: 'calma', note: '', triggers: 'estrés, cansancio', habitId: habits[0]?.id ?? 1 })
 
-  const addEntry = () => {
+  const addEntry = async () => {
     if (!form.note.trim()) return
     const selectedHabit = habits.find((habit) => habit.id === Number(form.habitId))
     const newEntry: JournalEntry = {
@@ -752,13 +748,13 @@ function JournalPage({ habits, journalEntries, setJournalEntries, darkMode, user
       habitId: selectedHabit?.id,
       habitName: selectedHabit?.name,
     }
-    setJournalEntries((current) => {
-      const next = [newEntry, ...current]
-      if (userId) {
-        void db.journalEntries.put({ ...newEntry, userId })
-      }
-      return next
-    })
+    try {
+      await apiFetch('/api/v1/journal', { method: 'PUT', body: JSON.stringify(newEntry) })
+      setJournalEntries((current) => [newEntry, ...current])
+    } catch (error) {
+      window.alert(error instanceof Error ? `No se pudo guardar la entrada: ${error.message}` : 'No se pudo guardar la entrada')
+      return
+    }
     setForm({ date: format(new Date(), 'yyyy-MM-dd'), mood: 'calma', note: '', triggers: 'estrés, cansancio', habitId: habits[0]?.id ?? 1 })
   }
 
@@ -808,10 +804,10 @@ function JournalPage({ habits, journalEntries, setJournalEntries, darkMode, user
   )
 }
 
-function UrgesPage({ habits, urgeLogs, setUrgeLogs, darkMode, userId }: { habits: Habit[]; urgeLogs: UrgeLog[]; setUrgeLogs: React.Dispatch<React.SetStateAction<UrgeLog[]>>; darkMode: boolean; userId?: number }) {
+function UrgesPage({ habits, urgeLogs, setUrgeLogs, darkMode }: { habits: Habit[]; urgeLogs: UrgeLog[]; setUrgeLogs: React.Dispatch<React.SetStateAction<UrgeLog[]>>; darkMode: boolean }) {
   const [form, setForm] = useState({ habitId: habits[0]?.id ?? 1, trigger: '', intensity: '6', coping: 'Respiración 4-6' })
 
-  const addUrge = () => {
+  const addUrge = async () => {
     if (!form.trigger.trim()) return
     const selectedHabit = habits.find((habit) => habit.id === Number(form.habitId))
     const newEntry: UrgeLog = {
@@ -823,13 +819,13 @@ function UrgesPage({ habits, urgeLogs, setUrgeLogs, darkMode, userId }: { habits
       habitId: selectedHabit?.id,
       habitName: selectedHabit?.name,
     }
-    setUrgeLogs((current) => {
-      const next = [newEntry, ...current]
-      if (userId) {
-        void db.urgeLogs.put({ ...newEntry, userId })
-      }
-      return next
-    })
+    try {
+      await apiFetch('/api/v1/urges', { method: 'PUT', body: JSON.stringify(newEntry) })
+      setUrgeLogs((current) => [newEntry, ...current])
+    } catch (error) {
+      window.alert(error instanceof Error ? `No se pudo guardar el impulso: ${error.message}` : 'No se pudo guardar el impulso')
+      return
+    }
     setForm({ habitId: habits[0]?.id ?? 1, trigger: '', intensity: '6', coping: 'Respiración 4-6' })
   }
 
@@ -982,7 +978,7 @@ function SettingsPage({ user, onLogout, darkMode }: { user?: SessionData['user']
   )
 }
 
-function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCreateUrge, darkMode }: { habits: Habit[]; onClose: () => void; onCreateHabit: (form: HabitForm) => void; onCreateJournal: (payload: { date: string; mood: string; note: string; triggers: string; habitId: number }) => void; onCreateUrge: (payload: { habitId: number; trigger: string; intensity: string; coping: string }) => void; darkMode: boolean }) {
+function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCreateUrge, darkMode }: { habits: Habit[]; onClose: () => void; onCreateHabit: (form: HabitForm) => Promise<void>; onCreateJournal: (payload: { date: string; mood: string; note: string; triggers: string; habitId: number }) => Promise<void>; onCreateUrge: (payload: { habitId: number; trigger: string; intensity: string; coping: string }) => Promise<void>; darkMode: boolean }) {
   const [tab, setTab] = useState<NewRecordMode>('habit')
   const [habitForm, setHabitForm] = useState<HabitForm>({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd') })
   const [journalForm, setJournalForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), mood: 'calma', note: '', triggers: 'estrés, cansancio', habitId: habits[0]?.id ?? 1 })
@@ -1013,7 +1009,7 @@ function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCre
               Fecha de inicio
               <input type="date" value={habitForm.startDate} onChange={(event) => setHabitForm((current) => ({ ...current, startDate: event.target.value }))} className={cn('mt-1 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} />
             </label>
-            <Button className="w-full" onClick={() => { onCreateHabit(habitForm); onClose() }}>Guardar hábito</Button>
+            <Button className="w-full" onClick={async () => { try { await onCreateHabit(habitForm); onClose() } catch (error) { window.alert(error instanceof Error ? `No se pudo guardar el hábito: ${error.message}` : 'No se pudo guardar el hábito') } }}>Guardar hábito</Button>
           </div>
         )}
 
@@ -1031,7 +1027,7 @@ function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCre
             </select>
             <textarea value={journalForm.note} onChange={(event) => setJournalForm((current) => ({ ...current, note: event.target.value }))} className={cn('min-h-28 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="Qué sentiste hoy" />
             <input value={journalForm.triggers} onChange={(event) => setJournalForm((current) => ({ ...current, triggers: event.target.value }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="Gatillos" />
-            <Button className="w-full" onClick={() => { onCreateJournal(journalForm); onClose() }}>Guardar entrada</Button>
+            <Button className="w-full" onClick={async () => { try { await onCreateJournal(journalForm); onClose() } catch (error) { window.alert(error instanceof Error ? `No se pudo guardar la entrada: ${error.message}` : 'No se pudo guardar la entrada') } }}>Guardar entrada</Button>
           </div>
         )}
 
@@ -1044,7 +1040,7 @@ function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCre
             <input type="range" min="1" max="10" value={urgeForm.intensity} onChange={(event) => setUrgeForm((current) => ({ ...current, intensity: event.target.value }))} className="w-full accent-amber-500" />
             <div className={cn('text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>Intensidad: {urgeForm.intensity}/10</div>
             <input value={urgeForm.coping} onChange={(event) => setUrgeForm((current) => ({ ...current, coping: event.target.value }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="Qué te ayudó" />
-            <Button className="w-full" onClick={() => { onCreateUrge(urgeForm); onClose() }}>Guardar impulso</Button>
+            <Button className="w-full" onClick={async () => { try { await onCreateUrge(urgeForm); onClose() } catch (error) { window.alert(error instanceof Error ? `No se pudo guardar el impulso: ${error.message}` : 'No se pudo guardar el impulso') } }}>Guardar impulso</Button>
           </div>
         )}
       </div>
@@ -1062,63 +1058,53 @@ function App() {
   const location = useLocation()
 
   useEffect(() => {
-    async function loadLocalData() {
-      const userId = session?.user.id
-      if (!userId) {
+    async function loadUserData() {
+      if (!session?.user.id) {
         setHabits([])
         setJournalEntries([])
         setUrgeLogs([])
         return
       }
 
-      const [localHabits, localJournalEntries, localUrgeLogs] = await Promise.all([
-        db.habits.where('userId').equals(userId).toArray(),
-        db.journalEntries.where('userId').equals(userId).toArray(),
-        db.urgeLogs.where('userId').equals(userId).toArray(),
-      ])
-
-      setHabits(
-        localHabits.map((habit) => {
-          const startDate = habit.startDate ?? format(new Date(), 'yyyy-MM-dd')
-          return {
-            id: habit.id ?? Date.now(),
-            name: habit.name,
-            title: habit.title ?? habit.name,
-            description: habit.description ?? 'Sin descripción',
-            reason: habit.reason ?? 'Porque me ayuda a cuidar de mí.',
-            streak: getStreakDays(startDate),
-            completed: habit.completed,
-            startDate,
-            streakHistory: habit.streakHistory ?? [],
-            color: habit.color,
-          }
-        }),
-      )
-      setJournalEntries(
-        localJournalEntries.map((entry) => ({
-          id: entry.id ?? Date.now(),
-          date: entry.date,
-          mood: entry.mood,
-          note: entry.note,
-          triggers: entry.triggers ?? [],
-          habitId: entry.habitId,
-          habitName: entry.habitName,
-        })),
-      )
-      setUrgeLogs(
-        localUrgeLogs.map((entry) => ({
-          id: entry.id ?? Date.now(),
-          time: entry.time,
-          trigger: entry.trigger,
-          intensity: entry.intensity,
-          coping: entry.coping,
-          habitId: entry.habitId,
-          habitName: entry.habitName,
-        })),
-      )
+      try {
+        const [localHabits, localJournalEntries, localUrgeLogs] = await Promise.all([
+          db.habits.where('userId').equals(session.user.id).toArray(),
+          db.journalEntries.where('userId').equals(session.user.id).toArray(),
+          db.urgeLogs.where('userId').equals(session.user.id).toArray(),
+        ])
+        if (localHabits.length || localJournalEntries.length || localUrgeLogs.length) {
+          await apiFetch('/api/v1/migration/local', {
+            method: 'POST',
+            body: JSON.stringify({
+              habits: localHabits.filter((item) => item.id !== undefined),
+              journalEntries: localJournalEntries.filter((item) => item.id !== undefined),
+              urgeLogs: localUrgeLogs.filter((item) => item.id !== undefined),
+            }),
+          })
+          await Promise.all([
+            db.habits.bulkDelete(localHabits.flatMap((item) => item.id === undefined ? [] : [item.id])),
+            db.journalEntries.bulkDelete(localJournalEntries.flatMap((item) => item.id === undefined ? [] : [item.id])),
+            db.urgeLogs.bulkDelete(localUrgeLogs.flatMap((item) => item.id === undefined ? [] : [item.id])),
+          ])
+        }
+        const [remoteHabits, remoteJournalEntries, remoteUrgeLogs] = await Promise.all([
+          apiFetch<Habit[]>('/api/v1/habits'),
+          apiFetch<JournalEntry[]>('/api/v1/journal'),
+          apiFetch<UrgeLog[]>('/api/v1/urges'),
+        ])
+        setHabits(remoteHabits.map((habit) => ({
+          ...habit,
+          streak: getStreakDays(habit.startDate),
+          streakHistory: habit.streakHistory ?? [],
+        })))
+        setJournalEntries(remoteJournalEntries.map((entry) => ({ ...entry, triggers: entry.triggers ?? [] })))
+        setUrgeLogs(remoteUrgeLogs)
+      } catch (error) {
+        window.alert(error instanceof Error ? `No se pudieron cargar tus datos: ${error.message}` : 'No se pudieron cargar tus datos')
+      }
     }
 
-    void loadLocalData()
+    void loadUserData()
   }, [session?.user.id])
 
   const onLogout = () => {
@@ -1126,7 +1112,7 @@ function App() {
     setSession(null)
   }
 
-  const handleCreateHabit = (form: HabitForm) => {
+  const handleCreateHabit = async (form: HabitForm) => {
     const title = form.title.trim() || 'Nuevo hábito'
     const newHabit: Habit = {
       id: Date.now(),
@@ -1141,16 +1127,11 @@ function App() {
       color: 'from-emerald-500 to-teal-500',
     }
 
-    setHabits((current) => {
-      const next = [newHabit, ...current]
-      if (session?.user.id) {
-        void db.habits.put({ ...newHabit, userId: session.user.id })
-      }
-      return next
-    })
+    await apiFetch('/api/v1/habits', { method: 'PUT', body: JSON.stringify(newHabit) })
+    setHabits((current) => [newHabit, ...current])
   }
 
-  const handleCreateJournal = ({ date, mood, note, triggers, habitId }: { date: string; mood: string; note: string; triggers: string; habitId: number }) => {
+  const handleCreateJournal = async ({ date, mood, note, triggers, habitId }: { date: string; mood: string; note: string; triggers: string; habitId: number }) => {
     const selectedHabit = habits.find((habit) => habit.id === Number(habitId))
     const newEntry: JournalEntry = {
       id: Date.now(),
@@ -1161,16 +1142,11 @@ function App() {
       habitId: selectedHabit?.id,
       habitName: selectedHabit?.name,
     }
-    setJournalEntries((current) => {
-      const next = [newEntry, ...current]
-      if (session?.user.id) {
-        void db.journalEntries.put({ ...newEntry, userId: session.user.id })
-      }
-      return next
-    })
+    await apiFetch('/api/v1/journal', { method: 'PUT', body: JSON.stringify(newEntry) })
+    setJournalEntries((current) => [newEntry, ...current])
   }
 
-  const handleCreateUrge = ({ habitId, trigger, intensity, coping }: { habitId: number; trigger: string; intensity: string; coping: string }) => {
+  const handleCreateUrge = async ({ habitId, trigger, intensity, coping }: { habitId: number; trigger: string; intensity: string; coping: string }) => {
     const selectedHabit = habits.find((habit) => habit.id === Number(habitId))
     const newUrge: UrgeLog = {
       id: Date.now(),
@@ -1181,13 +1157,8 @@ function App() {
       habitId: selectedHabit?.id,
       habitName: selectedHabit?.name,
     }
-    setUrgeLogs((current) => {
-      const next = [newUrge, ...current]
-      if (session?.user.id) {
-        void db.urgeLogs.put({ ...newUrge, userId: session.user.id })
-      }
-      return next
-    })
+    await apiFetch('/api/v1/urges', { method: 'PUT', body: JSON.stringify(newUrge) })
+    setUrgeLogs((current) => [newUrge, ...current])
   }
 
   const renderPage = () => {
@@ -1199,11 +1170,11 @@ function App() {
       case '/onboarding':
         return <div className={cn('rounded-[30px] border p-8 shadow-sm', darkMode ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-200 bg-white/80')}>Onboarding con estructura preparada.</div>
       case '/habits':
-        return <HabitsPage habits={habits} setHabits={setHabits} darkMode={darkMode} userId={session?.user.id} />
+        return <HabitsPage habits={habits} setHabits={setHabits} darkMode={darkMode} />
       case '/journal':
-        return <JournalPage habits={habits} journalEntries={journalEntries} setJournalEntries={setJournalEntries} darkMode={darkMode} userId={session?.user.id} />
+        return <JournalPage habits={habits} journalEntries={journalEntries} setJournalEntries={setJournalEntries} darkMode={darkMode} />
       case '/urges':
-        return <UrgesPage habits={habits} urgeLogs={urgeLogs} setUrgeLogs={setUrgeLogs} darkMode={darkMode} userId={session?.user.id} />
+        return <UrgesPage habits={habits} urgeLogs={urgeLogs} setUrgeLogs={setUrgeLogs} darkMode={darkMode} />
       case '/statistics':
         return <StatisticsPage darkMode={darkMode} habits={habits} journalEntries={journalEntries} urgeLogs={urgeLogs} />
       case '/settings':
