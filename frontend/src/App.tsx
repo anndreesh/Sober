@@ -338,7 +338,7 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
         <div className="relative z-10 max-w-2xl">
           <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#d9bd8a]"><Sparkles className="h-4 w-4" /> Tu proceso, a tu ritmo</p>
           <h1 className="auth-display max-w-xl text-3xl font-medium leading-tight tracking-tight sm:text-[3.3rem]">Hoy también cuenta.</h1>
-          <p className="mt-3 max-w-lg text-sm leading-6 text-[#e8eee8]/75">No hace falta tener todo resuelto. Solo estar aquí, presente, ya es avanzar.</p>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-[#e8eee8]/75">Estar aquí, presente, ya es avanzar.</p>
         </div>
         <Button className="intro-button relative z-10 shrink-0" icon={<Plus className="h-4 w-4" />} onClick={onOpenNewRecord}>Registrar cómo voy</Button>
       </section>

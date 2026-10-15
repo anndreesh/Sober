@@ -251,12 +251,17 @@
   .app-topbar .topbar-theme { display: none; }
   .dashboard-page { gap: 1rem; }
   .dashboard-page > section:nth-child(2) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dashboard-intro { min-height: 0; border-radius: 1.35rem; padding: 1.4rem; }
-  .dashboard-intro h1 { max-width: 19rem; font-size: 2.45rem; }
+  .dashboard-intro { min-height: 0; border-radius: 1.35rem; padding: 1.1rem; }
+  .dashboard-intro h1 { max-width: 19rem; font-size: 2.2rem; }
   .dashboard-intro::before { right: -100px; }
   .dashboard-intro::after { right: -170px; }
-  .metric-card { min-height: 108px; padding: .95rem; border-radius: .95rem; }
-  .metric-card p:last-child { margin-top: .55rem; font-size: 1.55rem; }
+  .metric-card { min-height: 88px; padding: .78rem; border-radius: .95rem; }
+  .metric-card p:last-child { margin-top: .3rem; font-size: 1.35rem; }
+  .metric-icon { padding: .55rem; border-radius: .8rem; }
+  .streak-card { flex-direction: row !important; align-items: center; justify-content: space-between; gap: .5rem !important; padding: 1rem !important; }
+  .streak-card .streak-orbit { width: 68px; height: 68px; flex: 0 0 auto; box-shadow: 0 0 0 5px rgba(237, 239, 229, .62), 0 0 0 10px rgba(237, 239, 229, .3); }
+  .streak-card > div:first-child { min-width: 0; }
+  .streak-card > div:first-child p:last-child { max-width: 14rem; }
   .mobile-nav { right: 7px; left: 7px; }
   .mobile-nav-link { min-width: 0; padding-inline: .35rem; font-size: .6rem; }
 }
