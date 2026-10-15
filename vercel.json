@@ -3,6 +3,13 @@
   "buildCommand": "npm run build --prefix frontend",
   "outputDirectory": "frontend/dist",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/dashboard", "destination": "/index.html" },
+    { "source": "/onboarding", "destination": "/index.html" },
+    { "source": "/habits", "destination": "/index.html" },
+    { "source": "/habits/(.*)", "destination": "/index.html" },
+    { "source": "/journal", "destination": "/index.html" },
+    { "source": "/urges", "destination": "/index.html" },
+    { "source": "/statistics", "destination": "/index.html" },
+    { "source": "/settings", "destination": "/index.html" }
   ]
 }
