@@ -827,11 +827,11 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
           <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="Título del hábito" />
           <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className={cn('min-h-24 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="Descripción del hábito" />
           <textarea value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} className={cn('min-h-20 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="¿Por qué te lo llevas?" />
-          <label className={cn('block text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>
-            Fecha de inicio
+          <div className={cn('text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>
+            <p>Fecha de inicio</p>
             <DatePicker value={form.startDate} onChange={(startDate) => setForm((current) => ({ ...current, startDate }))} darkMode={darkMode} label="Fecha de inicio del hábito" />
             <TimePicker value={form.startTime} onChange={(startTime) => setForm((current) => ({ ...current, startTime }))} darkMode={darkMode} />
-          </label>
+          </div>
           <Button className="w-full" onClick={saveHabit}>{editingId ? 'Guardar cambios' : 'Guardar hábito'}</Button>
         </div>
       </Card>
@@ -1088,11 +1088,11 @@ function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCre
             <input value={habitForm.title} onChange={(event) => setHabitForm((current) => ({ ...current, title: event.target.value }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="Título del hábito" />
             <textarea value={habitForm.description} onChange={(event) => setHabitForm((current) => ({ ...current, description: event.target.value }))} className={cn('min-h-24 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="Descripción" />
             <textarea value={habitForm.reason} onChange={(event) => setHabitForm((current) => ({ ...current, reason: event.target.value }))} className={cn('min-h-20 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="¿Por qué te lo llevas?" />
-            <label className={cn('block text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>
-              Fecha de inicio
+            <div className={cn('text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>
+              <p>Fecha de inicio</p>
               <DatePicker value={habitForm.startDate} onChange={(startDate) => setHabitForm((current) => ({ ...current, startDate }))} darkMode={darkMode} label="Fecha de inicio del hábito" />
               <TimePicker value={habitForm.startTime} onChange={(startTime) => setHabitForm((current) => ({ ...current, startTime }))} darkMode={darkMode} />
-            </label>
+            </div>
             <Button className="w-full" onClick={async () => { try { await onCreateHabit(habitForm); onClose() } catch (error) { window.alert(error instanceof Error ? `No se pudo guardar el hábito: ${error.message}` : 'No se pudo guardar el hábito') } }}>Guardar hábito</Button>
           </div>
         )}
