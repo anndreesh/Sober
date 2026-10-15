@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { es } from 'date-fns/locale'
 import {
   BookOpenText,
@@ -16,17 +16,6 @@ import {
 } from 'lucide-react'
 import { addDays, differenceInCalendarDays, format, isValid, parseISO, startOfDay, subDays, subMonths, subYears } from 'date-fns'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
 import { quotes } from './data/quotes'
@@ -77,6 +66,11 @@ type HabitForm = {
 }
 
 type HabitChartRange = 'week' | 'month' | 'year' | 'all'
+
+const WeeklyActivityChart = lazy(() => import('./components/Charts').then((charts) => ({ default: charts.WeeklyActivityChart })))
+const HabitProgressChart = lazy(() => import('./components/Charts').then((charts) => ({ default: charts.HabitProgressChart })))
+const WeeklyJournalChart = lazy(() => import('./components/Charts').then((charts) => ({ default: charts.WeeklyJournalChart })))
+const HabitStreakChart = lazy(() => import('./components/Charts').then((charts) => ({ default: charts.HabitStreakChart })))
 
 function getStreakDays(startDate: string, today = new Date()) {
   const start = parseISO(startDate)
@@ -134,64 +128,82 @@ function AuthScreen({ onAuth }: { onAuth: (session: SessionData) => void }) {
   }
 
   return (
-    <div className="auth-screen flex min-h-screen items-center justify-center p-4">
-      <div className="auth-card w-full max-w-md rounded-[32px] border p-7 shadow-lg backdrop-blur-md sm:p-9">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="brand-mark flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-semibold text-white">S</div>
-          <div>
-            <p className="eyebrow text-xs uppercase tracking-[0.18em]">Sober</p>
-            <h1 className="text-2xl font-semibold text-slate-900">Un día a la vez</h1>
+    <main className="auth-screen min-h-screen px-5 py-6 sm:px-8 lg:px-12">
+      <div className="auth-layout mx-auto grid min-h-[calc(100vh-3rem)] max-w-7xl items-center gap-12 lg:grid-cols-[minmax(0,1.2fr)_minmax(390px,.8fr)] lg:gap-20">
+        <section className="auth-story relative flex min-h-[320px] flex-col justify-between overflow-hidden rounded-[2rem] p-7 text-white sm:p-10 lg:min-h-[680px] lg:p-14">
+          <div className="auth-story-lines" aria-hidden="true" />
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="brand-mark flex h-11 w-11 items-center justify-center rounded-2xl text-lg font-semibold text-white">S</div>
+            <div>
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[#c8d6c9]">Sober</p>
+              <p className="mt-0.5 text-sm text-white/70">Un día a la vez</p>
+            </div>
           </div>
-        </div>
 
-        <div className="mb-7">
-          <p className="eyebrow mb-2 text-xs font-semibold uppercase tracking-[0.16em]">Un espacio para ti</p>
-          <h2 className="text-3xl font-semibold leading-tight text-slate-900">Tu camino merece cuidado.</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">Registra tus avances, reconoce lo que sientes y vuelve a empezar cuando lo necesites.</p>
-        </div>
+          <div className="relative z-10 my-10 max-w-2xl lg:my-auto lg:py-16">
+            <p className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#d8b77e]"><span className="h-px w-8 bg-[#d8b77e]" /> Un espacio para volver a ti</p>
+            <h1 className="auth-display max-w-2xl text-[2.8rem] font-medium leading-[1.02] tracking-[-0.045em] sm:text-6xl lg:text-[5.2rem]">Tu proceso merece <em>un lugar seguro.</em></h1>
+            <p className="mt-6 max-w-lg text-base leading-7 text-[#e0e8df]/75 sm:text-lg">Un registro privado para reconocer lo que sientes, cuidar tus hábitos y celebrar cada día que eliges seguir.</p>
+          </div>
 
-        <div className="mb-5 flex rounded-full bg-slate-100 p-1">
-          <button type="button" onClick={() => setMode('login')} className={cn('flex-1 rounded-full px-3 py-2 text-sm font-medium transition', mode === 'login' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>
-            Iniciar sesión
-          </button>
-          <button type="button" onClick={() => setMode('signup')} className={cn('flex-1 rounded-full px-3 py-2 text-sm font-medium transition', mode === 'signup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>
-            Crear cuenta
-          </button>
-        </div>
+          <div className="auth-story-footer relative z-10 flex flex-wrap items-center justify-between gap-4 border-t border-white/15 pt-5 text-xs text-[#e0e8df]/65 sm:text-sm">
+            <span>Sin prisa. Sin juicio. A tu ritmo.</span>
+            <span className="auth-private"><span aria-hidden="true">✳</span> Tu espacio personal</span>
+          </div>
+        </section>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          {mode === 'signup' && (
-            <label className="block text-sm font-medium text-slate-700">
-              Nombre
-              <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-400" placeholder="Tu nombre" />
+        <section className="auth-panel mx-auto w-full max-w-[460px] py-2 lg:py-10" aria-labelledby="auth-title">
+          <div className="mb-8 lg:mb-10">
+            <p className="eyebrow mb-2 text-xs font-semibold uppercase tracking-[0.18em]">{mode === 'login' ? 'Qué bueno verte' : 'Empieza con calma'}</p>
+            <h2 id="auth-title" className="auth-heading text-[2.3rem] font-medium leading-tight tracking-[-0.04em] text-[#17291f]">{mode === 'login' ? 'Volvamos a empezar.' : 'Un paso para ti.'}</h2>
+            <p className="mt-2 text-sm leading-6 text-[#647067]">{mode === 'login' ? 'Entra a tu espacio y continúa desde donde estás.' : 'Crea tu espacio privado. Puedes avanzar a tu propio ritmo.'}</p>
+          </div>
+
+          <div className="auth-mode mb-6 flex rounded-2xl p-1">
+            <button type="button" onClick={() => setMode('login')} aria-pressed={mode === 'login'} className={cn('flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition', mode === 'login' ? 'active' : '')}>
+              Iniciar sesión
+            </button>
+            <button type="button" onClick={() => setMode('signup')} aria-pressed={mode === 'signup'} className={cn('flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition', mode === 'signup' ? 'active' : '')}>
+              Crear cuenta
+            </button>
+          </div>
+
+          <form className="auth-form space-y-4" onSubmit={handleSubmit}>
+            {mode === 'signup' && (
+              <label className="auth-field block text-sm font-medium">
+                Nombre
+                <input autoComplete="name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition" placeholder="Tu nombre" required />
+              </label>
+            )}
+
+            <label className="auth-field block text-sm font-medium">
+              Usuario
+              <input autoComplete="username" value={form.username} onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))} className="mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition" placeholder="Tu usuario" required />
             </label>
-          )}
 
-          <label className="block text-sm font-medium text-slate-700">
-            Usuario
-            <input value={form.username} onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-400" placeholder="usuario" />
-          </label>
+            {mode === 'signup' && (
+              <label className="auth-field block text-sm font-medium">
+                Email
+                <input type="email" autoComplete="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className="mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition" placeholder="tu@email.com" required />
+              </label>
+            )}
 
-          {mode === 'signup' && (
-            <label className="block text-sm font-medium text-slate-700">
-              Email
-              <input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-400" placeholder="tu@email.com" />
+            <label className="auth-field block text-sm font-medium">
+              Contraseña
+              <input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} className="mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition" placeholder="Mínimo 8 caracteres" minLength={8} required />
             </label>
-          )}
 
-          <label className="block text-sm font-medium text-slate-700">
-            Contraseña
-            <input type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-400" placeholder="••••••••" />
-          </label>
+            {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
 
-          {error && <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+            <Button type="submit" className="auth-submit mt-2 w-full" disabled={loading}>
+              {loading ? 'Un momento…' : mode === 'login' ? 'Entrar a mi espacio' : 'Crear mi espacio'}
+            </Button>
+          </form>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Cargando...' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}
-          </Button>
-        </form>
+          <p className="auth-footnote mt-6 text-center text-xs leading-5 text-[#7a857d]">Un lugar privado para acompañar tu proceso, un día a la vez.</p>
+        </section>
       </div>
-    </div>
+    </main>
   )
 }
 
@@ -323,9 +335,9 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
     <div className="dashboard-page space-y-6 sm:space-y-7">
       <section className="dashboard-intro flex flex-col gap-5 overflow-hidden rounded-[30px] p-6 text-white sm:flex-row sm:items-end sm:justify-between sm:p-9">
         <div className="relative z-10 max-w-2xl">
-          <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100"><Sparkles className="h-4 w-4" /> Tu proceso, a tu ritmo</p>
-          <h1 className="max-w-xl text-3xl font-semibold leading-tight tracking-tight sm:text-[2.7rem]">Cada día que te eliges, cuenta.</h1>
-          <p className="mt-3 max-w-lg text-sm leading-6 text-emerald-50/80">Reconoce tus avances con paciencia. Lo importante es seguir dando el siguiente paso.</p>
+          <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#d9bd8a]"><Sparkles className="h-4 w-4" /> Tu proceso, a tu ritmo</p>
+          <h1 className="auth-display max-w-xl text-3xl font-medium leading-tight tracking-tight sm:text-[3.3rem]">Hoy también cuenta.</h1>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-[#e8eee8]/75">No hace falta tener todo resuelto. Solo estar aquí, presente, ya es avanzar.</p>
         </div>
         <Button className="intro-button relative z-10 shrink-0" icon={<Plus className="h-4 w-4" />} onClick={onOpenNewRecord}>Registrar cómo voy</Button>
       </section>
@@ -395,17 +407,9 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
 
           <div className="h-56 w-full">
             {journalEntries.length || urgeLogs.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={weekActivity}>
-                <defs><linearGradient id="activityFill" x1="0" x2="0" y1="0" y2="1"><stop offset="5%" stopColor="#4d8273" stopOpacity={0.34} /><stop offset="95%" stopColor="#4d8273" stopOpacity={0.02} /></linearGradient></defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e8e8e1'} />
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: darkMode ? '#cbd5e1' : '#64748b' }} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} tick={{ fontSize: 12, fill: darkMode ? '#cbd5e1' : '#64748b' }} />
-                <Tooltip />
-                <Area type="monotone" dataKey="journal" name="Diario" stroke="#3f7668" strokeWidth={2.5} fill="url(#activityFill)" />
-                <Area type="monotone" dataKey="urges" name="Impulsos" stroke="#d58a4d" strokeWidth={2.5} fill="transparent" />
-              </AreaChart>
-            </ResponsiveContainer>
+              <Suspense fallback={<div className="chart-loading">Preparando tu semana…</div>}>
+                <WeeklyActivityChart data={weekActivity} darkMode={darkMode} />
+              </Suspense>
             ) : <div className="chart-empty h-full"><span className="chart-empty-mark"><TrendingUp className="h-5 w-5" /></span><p>Tu semana todavía está por escribirse.</p><button type="button" onClick={onOpenNewRecord}>Añade tu primer registro <span aria-hidden="true">→</span></button></div>}
           </div>
         </Card>
@@ -590,21 +594,9 @@ function HabitDetailPage({ habits, darkMode }: { habits: Habit[]; darkMode: bool
         </div>
         <div className="h-64 w-full">
           {chartData.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="habitProgressFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.08} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} />
-                <XAxis dataKey="date" tickLine={false} axisLine={false} interval={xAxisInterval} tick={{ fontSize: 12, fill: darkMode ? '#cbd5e1' : '#64748b' }} />
-                <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: darkMode ? '#cbd5e1' : '#64748b' }} domain={[0, 100]} ticks={[0, 100]} />
-                <Tooltip />
-                <Area type="stepAfter" dataKey="value" name="Cumplimiento" stroke="#0f766e" strokeWidth={3} fill="url(#habitProgressFill)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="chart-loading">Preparando tu progreso…</div>}>
+              <HabitProgressChart data={chartData} darkMode={darkMode} interval={xAxisInterval} />
+            </Suspense>
           ) : (
             <div className={cn('flex h-full items-center justify-center text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>
               Aún no hay días de racha en este periodo.
@@ -834,7 +826,7 @@ function UrgesPage({ habits, urgeLogs, setUrgeLogs, darkMode }: { habits: Habit[
       <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
         <div className="mb-5">
           <p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Impulsos</p>
-          <h3 className={cn('text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Historial de riesgo</h3>
+          <h3 className={cn('text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Momentos que atravesaste</h3>
         </div>
         <div className="space-y-4">
           {urgeLogs.map((urge) => (
@@ -894,26 +886,9 @@ function StatisticsPage({ darkMode, habits, journalEntries, urgeLogs }: { darkMo
         <h3 className={cn('text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Diario e impulsos · últimos 7 días</h3>
         <div className="mt-5 h-64 w-full">
           {hasWeeklyActivity ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={weekly}>
-                <defs>
-                  <linearGradient id="journalActivityFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.75} />
-                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.06} />
-                  </linearGradient>
-                  <linearGradient id="urgeActivityFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.65} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.04} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} />
-                <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: darkMode ? '#cbd5e1' : '#64748b' }} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: darkMode ? '#cbd5e1' : '#64748b' }} />
-                <Tooltip />
-                <Area type="monotone" dataKey="journalCount" name="Diario" stroke="#0f766e" strokeWidth={3} fill="url(#journalActivityFill)" />
-                <Area type="monotone" dataKey="urgeCount" name="Impulsos" stroke="#d97706" strokeWidth={3} fill="url(#urgeActivityFill)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="chart-loading">Preparando tu actividad…</div>}>
+              <WeeklyJournalChart data={weekly} darkMode={darkMode} />
+            </Suspense>
           ) : (
             <div className={cn('flex h-full items-center justify-center text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>
               No hay registros de diario ni impulsos en los últimos 7 días.
@@ -927,15 +902,9 @@ function StatisticsPage({ darkMode, habits, journalEntries, urgeLogs }: { darkMo
         <h3 className={cn('text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Días de racha por hábito</h3>
         <div className="mt-5 h-64 w-full">
           {habitStreaks.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={habitStreaks}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} interval={0} tick={{ fontSize: 11, fill: darkMode ? '#cbd5e1' : '#64748b' }} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: darkMode ? '#cbd5e1' : '#64748b' }} />
-                <Tooltip formatter={(value) => [`${value} días`, 'Racha']} />
-                <Bar dataKey="days" name="Racha" radius={[8, 8, 0, 0]} fill="#8b5cf6" />
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="chart-loading">Preparando tus rachas…</div>}>
+              <HabitStreakChart data={habitStreaks} darkMode={darkMode} />
+            </Suspense>
           ) : (
             <div className={cn('flex h-full items-center justify-center text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>
               Crea un hábito para ver aquí su racha.
