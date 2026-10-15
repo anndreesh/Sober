@@ -18,6 +18,7 @@ import { addDays, differenceInCalendarDays, format, isValid, parseISO, startOfDa
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
+import { DatePicker } from './components/ui/date-picker'
 import { quotes } from './data/quotes'
 import { db } from './db/local-db'
 import { apiFetch, clearSession, getStoredSession, saveSession, type SessionData } from './lib/api-client'
@@ -32,6 +33,7 @@ type Habit = {
   streak: number
   completed: number
   startDate: string
+  firstStartDate: string
   streakHistory: { startDate: string; endDate: string }[]
   color: string
 }
@@ -440,7 +442,7 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
   )
 }
 
-function HabitDetailPage({ habits, darkMode }: { habits: Habit[]; darkMode: boolean }) {
+function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habits: Habit[]; journalEntries: JournalEntry[]; urgeLogs: UrgeLog[]; darkMode: boolean }) {
   const navigate = useNavigate()
   const { habitId } = useParams()
   const [chartRange, setChartRange] = useState<HabitChartRange>('week')
@@ -458,6 +460,10 @@ function HabitDetailPage({ habits, darkMode }: { habits: Habit[]; darkMode: bool
   }
 
   const habitStart = startOfDay(parseISO(habit.startDate))
+  const relatedJournal = journalEntries.filter((entry) => entry.habitId === habit.id)
+  const relatedUrges = urgeLogs.filter((urge) => urge.habitId === habit.id)
+  const lastAttempt = habit.streakHistory?.at(-1)
+  const historyPeriods = habit.streakHistory ?? []
   const streakPeriods = [
     ...(habit.streakHistory ?? []).map((period, index) => ({
       start: startOfDay(parseISO(period.startDate)),
@@ -536,8 +542,12 @@ function HabitDetailPage({ habits, darkMode }: { habits: Habit[]; darkMode: bool
         <div className="mt-6 grid gap-4 md:grid-cols-2">
         <div className={cn('rounded-2xl p-4', darkMode ? 'bg-slate-800' : 'bg-slate-50')}>
           <p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Fecha de inicio</p>
-          <p className={cn('mt-2 text-2xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>{habit.startDate ? format(parseISO(habit.startDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
+          <p className={cn('mt-2 text-2xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>{habit.firstStartDate ? format(parseISO(habit.firstStartDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
         </div>
+
+        {lastAttempt && <div className={cn('mt-4 rounded-2xl border px-4 py-3', darkMode ? 'border-amber-400/20 bg-amber-400/10 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-900')}>
+          <p className="text-sm font-semibold">Último intento: {format(parseISO(lastAttempt.startDate), 'd MMMM yyyy', { locale: es })}</p>
+        </div>}
         <div className={cn('rounded-2xl p-4', darkMode ? 'bg-slate-800' : 'bg-slate-50')}>
           <p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Racha</p>
           <p className={cn('mt-2 text-2xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>{getStreakDays(habit.startDate)} días</p>
@@ -555,6 +565,46 @@ function HabitDetailPage({ habits, darkMode }: { habits: Habit[]; darkMode: bool
         </div>
         </div>
       </Card>
+
+      <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
+        <div className="mb-5 flex items-end justify-between gap-3">
+          <div><p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Tu recorrido</p><h3 className={cn('text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Historial de intentos</h3></div>
+          <span className={cn('rounded-full px-3 py-1 text-xs font-medium', darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600')}>{historyPeriods.length} {historyPeriods.length === 1 ? 'reinicio' : 'reinicios'}</span>
+        </div>
+        <div className="space-y-3">
+          <div className={cn('flex items-center justify-between gap-4 rounded-2xl border p-4', darkMode ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-emerald-100 bg-emerald-50/70')}>
+            <div><p className={cn('font-medium', darkMode ? 'text-emerald-200' : 'text-emerald-900')}>Etapa actual</p><p className={cn('mt-1 text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>Desde {format(parseISO(habit.startDate), 'd MMM yyyy', { locale: es })}</p></div>
+            <span className={cn('shrink-0 text-sm font-semibold', darkMode ? 'text-emerald-200' : 'text-emerald-800')}>{getStreakDays(habit.startDate)} días</span>
+          </div>
+          {[...historyPeriods].reverse().map((period, index) => {
+            const start = parseISO(period.startDate)
+            const end = parseISO(period.endDate)
+            const duration = isValid(start) && isValid(end) ? Math.max(1, differenceInCalendarDays(end, start) + 1) : 0
+            return <div key={`${period.startDate}-${period.endDate}-${index}`} className={cn('flex items-center justify-between gap-4 rounded-2xl border p-4', darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-white')}>
+              <div><p className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>Intento finalizado</p><p className={cn('mt-1 text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>{format(start, 'd MMM yyyy', { locale: es })} – {format(end, 'd MMM yyyy', { locale: es })}</p></div>
+              <span className={cn('shrink-0 text-sm font-semibold', darkMode ? 'text-slate-200' : 'text-slate-700')}>{duration} {duration === 1 ? 'día' : 'días'}</span>
+            </div>
+          })}
+          {!historyPeriods.length && <p className={cn('rounded-2xl border border-dashed p-4 text-sm', darkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-500')}>Aquí aparecerán tus etapas anteriores cuando reinicies el hábito.</p>}
+        </div>
+      </Card>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
+          <div className="mb-5 flex items-center justify-between"><div><p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Registro personal</p><h3 className={cn('text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Diarios</h3></div><span className={cn('rounded-full px-3 py-1 text-xs', darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600')}>{relatedJournal.length}</span></div>
+          <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+            {relatedJournal.map((entry) => <div key={entry.id} className={cn('rounded-2xl border p-4', darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-slate-50')}><div className="mb-2 flex items-center justify-between gap-3"><span className={cn('text-sm font-medium', darkMode ? 'text-slate-200' : 'text-slate-700')}>{format(parseISO(`${entry.date}T00:00:00`), 'd MMM yyyy', { locale: es })}</span><span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">{entry.mood}</span></div><p className={cn('text-sm leading-6', darkMode ? 'text-slate-300' : 'text-slate-600')}>{entry.note}</p>{entry.triggers.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{entry.triggers.map((trigger) => <span key={`${entry.id}-${trigger}`} className={cn('rounded-full px-2.5 py-1 text-xs', darkMode ? 'bg-slate-700 text-slate-300' : 'bg-white text-slate-500')}>{trigger}</span>)}</div>}</div>)}
+            {!relatedJournal.length && <p className={cn('rounded-2xl border border-dashed p-4 text-sm', darkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-500')}>Aún no hay diarios vinculados a este hábito.</p>}
+          </div>
+        </Card>
+        <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
+          <div className="mb-5 flex items-center justify-between"><div><p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Momentos que atravesaste</p><h3 className={cn('text-xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>Impulsos</h3></div><span className={cn('rounded-full px-3 py-1 text-xs', darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600')}>{relatedUrges.length}</span></div>
+          <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+            {relatedUrges.map((urge) => <div key={urge.id} className={cn('rounded-2xl border p-4', darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-slate-50')}><div className="flex items-start justify-between gap-3"><p className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>{urge.trigger}</p><span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">{urge.intensity}/10</span></div><p className={cn('mt-2 text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>Estrategia: {urge.coping}</p><p className={cn('mt-2 text-xs', darkMode ? 'text-slate-500' : 'text-slate-400')}>{format(parseISO(urge.time), 'd MMM yyyy, HH:mm', { locale: es })}</p></div>)}
+            {!relatedUrges.length && <p className={cn('rounded-2xl border border-dashed p-4 text-sm', darkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-500')}>Aún no hay impulsos vinculados a este hábito.</p>}
+          </div>
+        </Card>
+      </div>
 
       <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -625,6 +675,7 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
       streak: getStreakDays(form.startDate),
       completed: editingId ? habits.find((habit) => habit.id === editingId)?.completed ?? 0 : 0,
       startDate: form.startDate || format(new Date(), 'yyyy-MM-dd'),
+      firstStartDate: editingId ? habits.find((habit) => habit.id === editingId)?.firstStartDate || habits.find((habit) => habit.id === editingId)?.streakHistory?.[0]?.startDate || habits.find((habit) => habit.id === editingId)?.startDate || form.startDate : form.startDate,
       streakHistory: editingId ? habits.find((habit) => habit.id === editingId)?.streakHistory ?? [] : [],
       color: editingId ? habits.find((habit) => habit.id === editingId)?.color ?? 'from-emerald-500 to-teal-500' : 'from-emerald-500 to-teal-500',
     }
@@ -648,6 +699,7 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
       ...updated,
       streak: 1,
       completed: 0,
+      firstStartDate: updated.firstStartDate || updated.streakHistory?.[0]?.startDate || updated.startDate,
       streakHistory: getArchivedStreaks(updated),
       startDate: format(new Date(), 'yyyy-MM-dd'),
     }
@@ -695,7 +747,8 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
                   <div className={cn('flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-lg font-semibold text-white', habit.color)}>{habit.name.slice(0, 1)}</div>
                   <div>
                     <p className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>{habit.title}</p>
-                    <p className={cn('text-sm', darkMode ? 'text-slate-300' : 'text-slate-500')}>Inicio: {habit.startDate ? format(parseISO(habit.startDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
+                    <p className={cn('text-sm', darkMode ? 'text-slate-300' : 'text-slate-500')}>Inicio: {habit.firstStartDate || habit.startDate ? format(parseISO(habit.firstStartDate || habit.startDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
+                    {habit.streakHistory?.length > 0 && <p className={cn('mt-1 text-xs', darkMode ? 'text-amber-300' : 'text-amber-700')}>Último intento: {format(parseISO(habit.streakHistory.at(-1)!.startDate), 'dd/MM/yyyy')}</p>}
                   </div>
                 </button>
                 <div className="flex gap-2">
@@ -717,7 +770,7 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
           <textarea value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} className={cn('min-h-20 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="¿Por qué te lo llevas?" />
           <label className={cn('block text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>
             Fecha de inicio
-            <input type="date" value={form.startDate} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} className={cn('mt-1 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} />
+            <DatePicker value={form.startDate} onChange={(startDate) => setForm((current) => ({ ...current, startDate }))} darkMode={darkMode} label="Fecha de inicio del hábito" />
           </label>
           <Button className="w-full" onClick={saveHabit}>{editingId ? 'Guardar cambios' : 'Guardar hábito'}</Button>
         </div>
@@ -781,7 +834,7 @@ function JournalPage({ habits, journalEntries, setJournalEntries, darkMode }: { 
           <select value={form.habitId} onChange={(event) => setForm((current) => ({ ...current, habitId: Number(event.target.value) }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')}>
             {habits.map((habit) => <option key={habit.id} value={habit.id}>{habit.name}</option>)}
           </select>
-          <input type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} />
+          <DatePicker value={form.date} onChange={(date) => setForm((current) => ({ ...current, date }))} darkMode={darkMode} label="Fecha del diario" />
           <select value={form.mood} onChange={(event) => setForm((current) => ({ ...current, mood: event.target.value }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')}>
             <option value="calma">Calma</option>
             <option value="ansiedad">Ansiedad</option>
@@ -977,7 +1030,7 @@ function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCre
             <textarea value={habitForm.reason} onChange={(event) => setHabitForm((current) => ({ ...current, reason: event.target.value }))} className={cn('min-h-20 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} placeholder="¿Por qué te lo llevas?" />
             <label className={cn('block text-sm', darkMode ? 'text-slate-300' : 'text-slate-600')}>
               Fecha de inicio
-              <input type="date" value={habitForm.startDate} onChange={(event) => setHabitForm((current) => ({ ...current, startDate: event.target.value }))} className={cn('mt-1 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} />
+              <DatePicker value={habitForm.startDate} onChange={(startDate) => setHabitForm((current) => ({ ...current, startDate }))} darkMode={darkMode} label="Fecha de inicio del hábito" />
             </label>
             <Button className="w-full" onClick={async () => { try { await onCreateHabit(habitForm); onClose() } catch (error) { window.alert(error instanceof Error ? `No se pudo guardar el hábito: ${error.message}` : 'No se pudo guardar el hábito') } }}>Guardar hábito</Button>
           </div>
@@ -988,7 +1041,7 @@ function NewRecordModal({ habits, onClose, onCreateHabit, onCreateJournal, onCre
             <select value={journalForm.habitId} onChange={(event) => setJournalForm((current) => ({ ...current, habitId: Number(event.target.value) }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')}>
               {habits.map((habit) => <option key={habit.id} value={habit.id}>{habit.name}</option>)}
             </select>
-            <input type="date" value={journalForm.date} onChange={(event) => setJournalForm((current) => ({ ...current, date: event.target.value }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')} />
+            <DatePicker value={journalForm.date} onChange={(date) => setJournalForm((current) => ({ ...current, date }))} darkMode={darkMode} label="Fecha del diario" />
             <select value={journalForm.mood} onChange={(event) => setJournalForm((current) => ({ ...current, mood: event.target.value }))} className={cn('w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-400', darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-900')}>
               <option value="calma">Calma</option>
               <option value="ansiedad">Ansiedad</option>
@@ -1065,6 +1118,7 @@ function App() {
         setHabits(remoteHabits.map((habit) => ({
           ...habit,
           streak: getStreakDays(habit.startDate),
+          firstStartDate: habit.firstStartDate || habit.streakHistory?.[0]?.startDate || habit.startDate,
           streakHistory: habit.streakHistory ?? [],
         })))
         setJournalEntries(remoteJournalEntries.map((entry) => ({ ...entry, triggers: entry.triggers ?? [] })))
@@ -1093,6 +1147,7 @@ function App() {
       streak: getStreakDays(form.startDate),
       completed: 0,
       startDate: form.startDate || format(new Date(), 'yyyy-MM-dd'),
+      firstStartDate: form.startDate || format(new Date(), 'yyyy-MM-dd'),
       streakHistory: [],
       color: 'from-emerald-500 to-teal-500',
     }
@@ -1133,7 +1188,7 @@ function App() {
 
   const renderPage = () => {
     if (location.pathname.startsWith('/habits/')) {
-      return <HabitDetailPage habits={habits} darkMode={darkMode} />
+      return <HabitDetailPage habits={habits} journalEntries={journalEntries} urgeLogs={urgeLogs} darkMode={darkMode} />
     }
 
     switch (location.pathname) {

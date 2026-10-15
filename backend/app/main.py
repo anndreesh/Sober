@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from app.api.v1 import auth, community, dashboard, records, statistics
 from app.core.config import get_settings
@@ -14,6 +14,13 @@ from app.schemas.common import StatusResponse
 settings = get_settings()
 
 Base.metadata.create_all(bind=engine)
+
+# create_all does not add columns to an existing database; add this nullable
+# field in place so existing Render/Supabase data keeps working during rollout.
+with engine.begin() as connection:
+    columns = {column['name'] for column in inspect(connection).get_columns('habits')}
+    if 'first_start_date' not in columns:
+        connection.execute(text('ALTER TABLE habits ADD COLUMN first_start_date VARCHAR(10)'))
 
 app = FastAPI(title='Sober Free Web API', version='0.1.0')
 

@@ -10,7 +10,7 @@ from app.schemas.records import HabitPayload, JournalPayload, LocalDataImportPay
 router = APIRouter(tags=['user records'])
 
 RECORD_FIELDS = {
-    HabitRecord: ('name', 'title', 'description', 'reason', 'streak', 'completed', 'start_date', 'streak_history', 'color'),
+    HabitRecord: ('name', 'title', 'description', 'reason', 'streak', 'completed', 'start_date', 'first_start_date', 'streak_history', 'color'),
     JournalRecord: ('date', 'mood', 'note', 'triggers', 'habit_id', 'habit_name'),
     UrgeRecord: ('time', 'trigger', 'intensity', 'coping', 'habit_id', 'habit_name'),
 }
@@ -23,7 +23,11 @@ def save_record(db: Session, model, user: User, payload, fields: tuple[str, ...]
         db.add(record)
     values = payload.model_dump(exclude={'id'})
     for field in fields:
-        setattr(record, field, values[field])
+        value = values[field]
+        if model is HabitRecord and field == 'first_start_date':
+            history = values.get('streak_history') or []
+            value = getattr(record, field, None) or value or (history[0].get('startDate') if history else values['start_date'])
+        setattr(record, field, value)
     db.commit()
     return record
 
@@ -33,6 +37,9 @@ def serialize(record, fields: tuple[str, ...]):
     for field in fields:
         first, *rest = field.split('_')
         result[first + ''.join(part.capitalize() for part in rest)] = getattr(record, field)
+    if isinstance(record, HabitRecord) and not result.get('firstStartDate'):
+        history = result.get('streakHistory') or []
+        result['firstStartDate'] = history[0].get('startDate') if history else result.get('startDate')
     return result
 
 
@@ -59,13 +66,13 @@ def import_local_data(payload: LocalDataImportPayload, db: Session = Depends(get
 
 @router.get('/habits')
 def list_habits(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    fields = ('name', 'title', 'description', 'reason', 'streak', 'completed', 'start_date', 'streak_history', 'color')
+    fields = ('name', 'title', 'description', 'reason', 'streak', 'completed', 'start_date', 'first_start_date', 'streak_history', 'color')
     return [serialize(item, fields) for item in db.query(HabitRecord).filter_by(user_id=user.id).order_by(HabitRecord.id.desc()).all()]
 
 
 @router.put('/habits')
 def put_habit(payload: HabitPayload, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    fields = ('name', 'title', 'description', 'reason', 'streak', 'completed', 'start_date', 'streak_history', 'color')
+    fields = ('name', 'title', 'description', 'reason', 'streak', 'completed', 'start_date', 'first_start_date', 'streak_history', 'color')
     return serialize(save_record(db, HabitRecord, user, payload, fields), fields)
 
 

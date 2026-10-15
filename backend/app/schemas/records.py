@@ -21,6 +21,7 @@ class HabitPayload(RecordPayload):
     streak: int = 0
     completed: int = 0
     start_date: str
+    first_start_date: Optional[str] = None
     streak_history: list[dict[str, str]] = Field(default_factory=list)
     color: str = 'from-emerald-500 to-teal-500'
 

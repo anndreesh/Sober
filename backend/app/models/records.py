@@ -17,6 +17,7 @@ class HabitRecord(Base):
     streak = Column(Integer, nullable=False, default=0)
     completed = Column(Integer, nullable=False, default=0)
     start_date = Column(String(10), nullable=False)
+    first_start_date = Column(String(10), nullable=True)
     streak_history = Column(JSON, nullable=False, default=list)
     color = Column(String(80), nullable=False, default='from-emerald-500 to-teal-500')
 
