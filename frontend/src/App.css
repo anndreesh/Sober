@@ -140,6 +140,7 @@
 .chart-empty button, .list-empty button { margin-top: .2rem; color: #315e3c; font-size: .8rem; font-weight: 650; }
 .chart-empty button:hover, .list-empty button:hover { color: #214d40; text-decoration: underline; }
 .list-empty { min-height: 150px; gap: .5rem; padding: 1rem; }
+.list-empty-compact { min-height: 5.5rem; flex-direction: row; justify-content: flex-start; gap: .8rem; padding: .8rem 1rem; text-align: left; }
 .list-empty > svg { color: #66826a; }
 .chart-loading { display: grid; width: 100%; height: 100%; min-height: 3rem; place-items: center; color: #748078; font-size: .8rem; }
 .mobile-nav { display: none; }
@@ -249,6 +250,7 @@
   .app-topbar h2 { max-width: 8.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .app-topbar .topbar-theme { display: none; }
   .dashboard-page { gap: 1rem; }
+  .dashboard-page > section:nth-child(2) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-intro { min-height: 0; border-radius: 1.35rem; padding: 1.4rem; }
   .dashboard-intro h1 { max-width: 19rem; font-size: 2.45rem; }
   .dashboard-intro::before { right: -100px; }

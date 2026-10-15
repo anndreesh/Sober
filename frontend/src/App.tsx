@@ -330,6 +330,7 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
     const age = isValid(urgeDate) ? differenceInCalendarDays(startOfDay(new Date()), startOfDay(urgeDate)) : 8
     return age >= 0 && age < 7
   }).length
+  const hasWeeklyRecords = journalEntries.length > 0 || urgeLogs.length > 0
 
   return (
     <div className="dashboard-page space-y-6 sm:space-y-7">
@@ -379,7 +380,7 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
             <div className="streak-orbit" aria-hidden="true"><Flame className="h-7 w-7" /><span>{currentStreak}</span></div>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-5">
             <div className="mb-3 flex items-center gap-2">
               <Flame className="h-4 w-4 text-amber-500" />
               <h4 className={cn('text-sm font-semibold', darkMode ? 'text-white' : 'text-slate-800')}>Todas tus rachas</h4>
@@ -402,11 +403,11 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
                   </div>
                 ))}
               </div>
-            ) : <div className="list-empty min-h-24"><Target className="h-5 w-5" /><p>Aún no tienes rachas. Agrega un hábito para empezar.</p></div>}
+            ) : <div className="list-empty list-empty-compact"><Target className="h-5 w-5" /><p>Aún no tienes rachas. Agrega un hábito para empezar.</p></div>}
           </div>
 
-          <div className="h-56 w-full">
-            {journalEntries.length || urgeLogs.length ? (
+          <div className={cn('w-full', hasWeeklyRecords ? 'h-56' : 'h-36')}>
+            {hasWeeklyRecords ? (
               <Suspense fallback={<div className="chart-loading">Preparando tu semana…</div>}>
                 <WeeklyActivityChart data={weekActivity} darkMode={darkMode} />
               </Suspense>
