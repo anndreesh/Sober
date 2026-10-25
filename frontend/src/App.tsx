@@ -24,7 +24,7 @@ import { Card } from './components/ui/card'
 import { DatePicker, TimePicker } from './components/ui/date-picker'
 import { quotes } from './data/quotes'
 import { db } from './db/local-db'
-import { apiFetch, clearSession, getStoredSession, saveSession, type SessionData } from './lib/api-client'
+import { ApiError, apiFetch, clearSession, getStoredSession, saveSession, type SessionData } from './lib/api-client'
 import { cn } from './lib/utils'
 
 type Habit = {
@@ -241,7 +241,7 @@ function AuthScreen({ onAuth }: { onAuth: (session: SessionData) => void }) {
             {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
 
             <Button type="submit" className="auth-submit mt-2 w-full" disabled={loading}>
-              {loading ? 'Un momento…' : mode === 'login' ? 'Entrar a mi espacio' : 'Crear mi espacio'}
+              {loading ? 'Conectando con tu espacio…' : mode === 'login' ? 'Entrar a mi espacio' : 'Crear mi espacio'}
             </Button>
           </form>
 
@@ -252,7 +252,7 @@ function AuthScreen({ onAuth }: { onAuth: (session: SessionData) => void }) {
   )
 }
 
-function Layout({ children, currentUser, onLogout, darkMode, onToggleDark, onOpenNewRecord }: { children: ReactNode; currentUser?: SessionData['user']; onLogout: () => void; darkMode: boolean; onToggleDark: () => void; onOpenNewRecord: () => void }) {
+function Layout({ children, currentUser, onLogout, darkMode, onToggleDark, onOpenNewRecord, dataLoading, dataError, onRetry }: { children: ReactNode; currentUser?: SessionData['user']; onLogout: () => void; darkMode: boolean; onToggleDark: () => void; onOpenNewRecord: () => void; dataLoading: boolean; dataError: string; onRetry: () => void }) {
   const navigation = [
     { to: '/dashboard', label: 'Inicio', icon: Home },
     { to: '/habits', label: 'Hábitos', icon: Sparkles },
@@ -309,6 +309,12 @@ function Layout({ children, currentUser, onLogout, darkMode, onToggleDark, onOpe
               </NavLink>
             ))}
           </nav>
+          {(dataLoading || dataError) && (
+            <div role={dataError ? 'alert' : 'status'} className={cn('mb-4 flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm shadow-sm', dataError ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800')}>
+              <span>{dataLoading ? 'Sincronizando tus hábitos y rachas…' : `No se pudieron cargar tus datos: ${dataError}`}</span>
+              {dataError && <Button variant="ghost" size="sm" onClick={onRetry}><RefreshCw className="h-4 w-4" /> Reintentar</Button>}
+            </div>
+          )}
           {children}
         </main>
       </div>
@@ -1139,6 +1145,8 @@ function App() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [urgeLogs, setUrgeLogs] = useState<UrgeLog[]>([])
+  const [dataLoading, setDataLoading] = useState(false)
+  const [dataError, setDataError] = useState('')
   const location = useLocation()
 
   useEffect(() => {
@@ -1149,6 +1157,9 @@ function App() {
         setUrgeLogs([])
         return
       }
+
+      setDataLoading(true)
+      setDataError('')
 
       try {
         const [localHabits, localJournalEntries, localUrgeLogs] = await Promise.all([
@@ -1186,7 +1197,14 @@ function App() {
         setJournalEntries(remoteJournalEntries.map((entry) => ({ ...entry, triggers: entry.triggers ?? [] })))
         setUrgeLogs(remoteUrgeLogs)
       } catch (error) {
-        window.alert(error instanceof Error ? `No se pudieron cargar tus datos: ${error.message}` : 'No se pudieron cargar tus datos')
+        if (error instanceof ApiError && error.status === 401) {
+          clearSession()
+          setSession(null)
+          return
+        }
+        setDataError(error instanceof Error ? error.message : 'No se pudieron cargar tus datos')
+      } finally {
+        setDataLoading(false)
       }
     }
 
@@ -1281,7 +1299,7 @@ function App() {
 
   return (
     <>
-      <Layout currentUser={session.user} onLogout={onLogout} darkMode={darkMode} onToggleDark={() => setDarkMode((current) => !current)} onOpenNewRecord={() => setShowNewRecord(true)}>
+      <Layout currentUser={session.user} onLogout={onLogout} darkMode={darkMode} onToggleDark={() => setDarkMode((current) => !current)} onOpenNewRecord={() => setShowNewRecord(true)} dataLoading={dataLoading} dataError={dataError} onRetry={() => window.location.reload()}>
         {renderPage()}
       </Layout>
       {showNewRecord && <NewRecordModal habits={habits} onClose={() => setShowNewRecord(false)} onCreateHabit={handleCreateHabit} onCreateJournal={handleCreateJournal} onCreateUrge={handleCreateUrge} darkMode={darkMode} />}
