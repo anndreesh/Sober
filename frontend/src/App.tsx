@@ -657,7 +657,7 @@ function HabitDetailPage({ habits, setHabits, journalEntries, urgeLogs, darkMode
           </div>
         </div>
 
-        {isEditing ? (
+        {isEditing && (
           <div className={cn('mt-6 rounded-3xl border p-5', darkMode ? 'border-emerald-800 bg-slate-800' : 'border-emerald-200 bg-emerald-50/50')}>
             <div className="grid gap-4 md:grid-cols-2">
               <label className={cn('text-sm font-medium md:col-span-2', darkMode ? 'text-slate-200' : 'text-slate-700')}>Nombre del hábito<input value={editForm.title} onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))} className={cn('mt-2 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-500', darkMode ? 'border-slate-600 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')} /></label>
@@ -669,7 +669,9 @@ function HabitDetailPage({ habits, setHabits, journalEntries, urgeLogs, darkMode
               <Button onClick={saveDetails}>Guardar cambios</Button>
             </div>
           </div>
-        ) : <div className="mt-6 grid gap-4 md:grid-cols-2">
+        )}
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
         <div className={cn('rounded-2xl p-4', darkMode ? 'bg-slate-800' : 'bg-slate-50')}>
           <p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Fecha de inicio</p>
           <p className={cn('mt-2 text-2xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>{habit.firstStartDate ? format(parseISO(habit.firstStartDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
@@ -698,7 +700,7 @@ function HabitDetailPage({ habits, setHabits, journalEntries, urgeLogs, darkMode
           <p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Por qué lo llevo</p>
           <p className={cn('mt-2 text-base leading-7', darkMode ? 'text-slate-200' : 'text-slate-700')}>{habit.reason}</p>
         </div>
-        </div>}
+        </div>
       </Card>
 
       <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
