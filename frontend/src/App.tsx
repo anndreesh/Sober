@@ -7,12 +7,14 @@ import {
   History,
   Home,
   MoonStar,
+  Pencil,
   Plus,
   Quote,
   RefreshCw,
   RotateCcw,
   Settings,
   Sparkles,
+  Trash2,
   Target,
   TrendingUp,
   Zap,
@@ -323,6 +325,7 @@ function Layout({ children, currentUser, onLogout, darkMode, onToggleDark, onOpe
 }
 
 function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRecord }: { habits: Habit[]; journalEntries: JournalEntry[]; urgeLogs: UrgeLog[]; darkMode: boolean; onOpenNewRecord: () => void }) {
+  const navigate = useNavigate()
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * quotes.length))
   const now = useCurrentTime()
   const longestStreakHabit = habits.reduce<Habit | undefined>(
@@ -449,9 +452,9 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
                         {streak.endDate && isValid(parseISO(streak.endDate)) ? ` – ${format(parseISO(streak.endDate), 'd MMM yyyy', { locale: es })}` : ''}
                       </p>
                     </div>
-                    <span className={cn('shrink-0 rounded-xl px-3 py-2 text-sm font-semibold', streak.isCurrent ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200' : 'bg-white/70 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100')}>
+                    <button type="button" onClick={() => navigate(`/habits/${streak.key.split('-')[0]}`)} className="shrink-0 rounded-xl bg-emerald-100 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-200 focus-visible:outline-emerald-600 dark:bg-emerald-950/70 dark:text-emerald-200 dark:hover:bg-emerald-900" aria-label={`Abrir el hábito ${streak.habitName}`}>
                       {streak.days} {streak.days === 1 ? 'día' : 'días'}
-                    </span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -492,16 +495,73 @@ function DashboardPage({ habits, journalEntries, urgeLogs, darkMode, onOpenNewRe
   )
 }
 
-function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habits: Habit[]; journalEntries: JournalEntry[]; urgeLogs: UrgeLog[]; darkMode: boolean }) {
+function HabitDetailPage({ habits, setHabits, journalEntries, urgeLogs, darkMode }: { habits: Habit[]; setHabits: React.Dispatch<React.SetStateAction<Habit[]>>; journalEntries: JournalEntry[]; urgeLogs: UrgeLog[]; darkMode: boolean }) {
   const navigate = useNavigate()
   const { habitId } = useParams()
   const [chartRange, setChartRange] = useState<HabitChartRange>('week')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState({ title: '', description: '', reason: '' })
   const now = useCurrentTime()
   useEffect(() => {
     setChartRange('week')
   }, [habitId])
 
   const habit = habits.find((entry) => entry.id === Number(habitId))
+
+  const beginEdit = () => {
+    if (!habit) return
+    setEditForm({ title: habit.title, description: habit.description, reason: habit.reason })
+    setIsEditing(true)
+  }
+
+  const saveDetails = async () => {
+    if (!habit) return
+    const payload = {
+      ...habit,
+      name: editForm.title.trim() || habit.title,
+      title: editForm.title.trim() || habit.title,
+      description: editForm.description.trim() || 'Sin descripción',
+      reason: editForm.reason.trim() || 'Porque me ayuda a cuidar de mí.',
+    }
+    try {
+      await apiFetch('/api/v1/habits', { method: 'PUT', body: JSON.stringify(payload) })
+      setHabits((current) => current.map((entry) => entry.id === habit.id ? payload : entry))
+      setIsEditing(false)
+    } catch (error) {
+      window.alert(error instanceof Error ? `No se pudieron guardar los cambios: ${error.message}` : 'No se pudieron guardar los cambios')
+    }
+  }
+
+  const resetHabit = async () => {
+    if (!habit) return
+    const restartedAt = new Date()
+    const payload = {
+      ...habit,
+      streak: 0,
+      completed: 0,
+      firstStartDate: habit.firstStartDate || habit.streakHistory?.[0]?.startDate || habit.startDate,
+      streakHistory: getArchivedStreaks(habit, restartedAt),
+      startDate: format(restartedAt, 'yyyy-MM-dd'),
+      startAt: restartedAt.toISOString(),
+    }
+    try {
+      await apiFetch('/api/v1/habits', { method: 'PUT', body: JSON.stringify(payload) })
+      setHabits((current) => current.map((entry) => entry.id === habit.id ? payload : entry))
+    } catch (error) {
+      window.alert(error instanceof Error ? `No se pudo reiniciar la racha: ${error.message}` : 'No se pudo reiniciar la racha')
+    }
+  }
+
+  const deleteHabit = async () => {
+    if (!habit || !window.confirm(`¿Eliminar el hábito “${habit.title}” y sus datos vinculados?`)) return
+    try {
+      await apiFetch(`/api/v1/habits/${habit.id}`, { method: 'DELETE' })
+      setHabits((current) => current.filter((entry) => entry.id !== habit.id))
+      navigate('/habits')
+    } catch (error) {
+      window.alert(error instanceof Error ? `No se pudo eliminar el hábito: ${error.message}` : 'No se pudo eliminar el hábito')
+    }
+  }
 
   if (!habit) {
     return <Card className={cn('p-10 text-center', darkMode ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')}>No se encontró el hábito.</Card>
@@ -571,8 +631,13 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="secondary" onClick={() => navigate('/habits')}>Volver</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" icon={<Pencil className="h-4 w-4" />} onClick={beginEdit}>Editar detalles</Button>
+          <Button variant="secondary" icon={<RotateCcw className="h-4 w-4" />} onClick={resetHabit}>Reiniciar</Button>
+          <Button variant="secondary" icon={<Trash2 className="h-4 w-4" />} className="text-rose-700 hover:bg-rose-50" onClick={deleteHabit}>Eliminar</Button>
+        </div>
       </div>
 
       <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
@@ -585,25 +650,37 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
             </div>
           </div>
 
-          <div className={cn('rounded-2xl px-4 py-3 text-center', darkMode ? 'bg-slate-800 text-white' : 'bg-emerald-50 text-emerald-800')}>
+          <div className={cn('rounded-2xl px-4 py-3 text-center', darkMode ? 'bg-emerald-950/70 text-emerald-200' : 'bg-emerald-50 text-emerald-800')}>
             <p className="text-xs uppercase tracking-[0.2em]">Racha</p>
             <p className="text-3xl font-semibold">{getStreakDays(habit.startAt, habit.startDate, now)}</p>
             <p className="text-xs">días</p>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        {isEditing ? (
+          <div className={cn('mt-6 rounded-3xl border p-5', darkMode ? 'border-emerald-800 bg-slate-800' : 'border-emerald-200 bg-emerald-50/50')}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className={cn('text-sm font-medium md:col-span-2', darkMode ? 'text-slate-200' : 'text-slate-700')}>Nombre del hábito<input value={editForm.title} onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))} className={cn('mt-2 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-500', darkMode ? 'border-slate-600 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')} /></label>
+              <label className={cn('text-sm font-medium', darkMode ? 'text-slate-200' : 'text-slate-700')}>Descripción<textarea value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} className={cn('mt-2 min-h-28 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-500', darkMode ? 'border-slate-600 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')} /></label>
+              <label className={cn('text-sm font-medium', darkMode ? 'text-slate-200' : 'text-slate-700')}>Por qué lo llevo<textarea value={editForm.reason} onChange={(event) => setEditForm((current) => ({ ...current, reason: event.target.value }))} className={cn('mt-2 min-h-28 w-full rounded-2xl border px-3 py-2.5 outline-none focus:border-emerald-500', darkMode ? 'border-slate-600 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')} /></label>
+            </div>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => setIsEditing(false)}>Cancelar</Button>
+              <Button onClick={saveDetails}>Guardar cambios</Button>
+            </div>
+          </div>
+        ) : <div className="mt-6 grid gap-4 md:grid-cols-2">
         <div className={cn('rounded-2xl p-4', darkMode ? 'bg-slate-800' : 'bg-slate-50')}>
           <p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Fecha de inicio</p>
           <p className={cn('mt-2 text-2xl font-semibold', darkMode ? 'text-white' : 'text-slate-900')}>{habit.firstStartDate ? format(parseISO(habit.firstStartDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
         </div>
 
-        {lastAttempt && <div className={cn('relative mt-4 overflow-hidden rounded-[24px] border p-5 shadow-sm', darkMode ? 'border-orange-300/15 bg-gradient-to-br from-[#3a251d] via-[#2d211c] to-slate-900 text-orange-100' : 'border-orange-200/80 bg-gradient-to-br from-[#fff2e3] via-[#fff8ef] to-white text-[#713d22]')}>
+        {lastAttempt && <div className={cn('relative mt-4 overflow-hidden rounded-[24px] border p-5 shadow-sm', darkMode ? 'border-emerald-300/15 bg-gradient-to-br from-[#183b2b] via-[#1f3329] to-slate-900 text-emerald-100' : 'border-emerald-200/80 bg-gradient-to-br from-[#eaf6ec] via-[#f5fbf4] to-white text-[#245c35]')}>
           <div className="pointer-events-none absolute -right-7 -top-10 h-32 w-32 rounded-full bg-orange-400/10 blur-2xl" />
           <div className="relative flex items-center gap-4">
-            <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-inner', darkMode ? 'bg-orange-300/10 text-orange-200' : 'bg-white/80 text-orange-700')}><History className="h-5 w-5" /></div>
+            <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-inner', darkMode ? 'bg-emerald-300/10 text-emerald-200' : 'bg-white/80 text-emerald-700')}><History className="h-5 w-5" /></div>
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] font-bold uppercase tracking-[0.2em] opacity-75">Último intento</p><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider', darkMode ? 'bg-orange-200/10 text-orange-200' : 'bg-orange-100 text-orange-800')}>Etapa {historyPeriods.length}</span></div>
+              <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] font-bold uppercase tracking-[0.2em] opacity-75">Último intento</p><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider', darkMode ? 'bg-emerald-200/10 text-emerald-200' : 'bg-emerald-100 text-emerald-800')}>Etapa {historyPeriods.length}</span></div>
               <p className="mt-1 flex items-center gap-2 text-base font-semibold"><Clock3 className="h-4 w-4 opacity-65" />{format(lastAttempt.startAt ? parseISO(lastAttempt.startAt) : parseISO(`${lastAttempt.startDate}T00:00:00`), 'd MMMM yyyy · HH:mm:ss', { locale: es })}</p>
               <p className="mt-1 text-sm opacity-70">Duró {durationLabel(lastAttempt.startAt && lastAttempt.endAt ? parseISO(lastAttempt.endAt).getTime() - parseISO(lastAttempt.startAt).getTime() : Math.max(0, differenceInCalendarDays(parseISO(lastAttempt.endDate), parseISO(lastAttempt.startDate)) + 1) * 86_400_000)}</p>
             </div>
@@ -621,7 +698,7 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
           <p className={cn('text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>Por qué lo llevo</p>
           <p className={cn('mt-2 text-base leading-7', darkMode ? 'text-slate-200' : 'text-slate-700')}>{habit.reason}</p>
         </div>
-        </div>
+        </div>}
       </Card>
 
       <Card className={cn('p-6', darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white/80')}>
@@ -638,7 +715,7 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
             const start = period.startAt ? parseISO(period.startAt) : parseISO(`${period.startDate}T00:00:00`)
             const end = period.endAt ? parseISO(period.endAt) : parseISO(`${period.endDate}T23:59:59.999`)
             const duration = isValid(start) && isValid(end) ? Math.max(0, end.getTime() - start.getTime()) : 0
-            return <div key={`${period.startDate}-${period.endDate}-${index}`} className={cn('flex items-center justify-between gap-4 rounded-2xl border p-4', darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-white')}>
+            return <div key={`${period.startDate}-${period.endDate}-${index}`} className={cn('flex items-center justify-between gap-4 rounded-2xl border p-4', darkMode ? 'border-emerald-800/70 bg-emerald-950/20' : 'border-emerald-100 bg-emerald-50/40')}>
               <div><p className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>Intento finalizado</p><p className={cn('mt-1 text-sm', darkMode ? 'text-slate-400' : 'text-slate-500')}>{format(start, 'd MMM yyyy · HH:mm:ss', { locale: es })} – {format(end, 'd MMM yyyy · HH:mm:ss', { locale: es })}</p></div>
               <span className={cn('shrink-0 text-right text-sm font-semibold', darkMode ? 'text-slate-200' : 'text-slate-700')}>{durationLabel(duration)}</span>
             </div>
@@ -719,6 +796,7 @@ function HabitDetailPage({ habits, journalEntries, urgeLogs, darkMode }: { habit
 }
 
 function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabits: React.Dispatch<React.SetStateAction<Habit[]>>; darkMode: boolean }) {
+  const navigate = useNavigate()
   const [form, setForm] = useState<HabitForm>({ title: '', description: '', reason: '', startDate: format(new Date(), 'yyyy-MM-dd'), startTime: format(new Date(), 'HH:mm:ss') })
   const [editingId, setEditingId] = useState<number | null>(null)
 
@@ -808,12 +886,12 @@ function HabitsPage({ habits, setHabits, darkMode }: { habits: Habit[]; setHabit
           {habits.map((habit) => (
             <div key={habit.id} className={cn('rounded-2xl border p-4', darkMode ? 'border-slate-700 bg-slate-800/80' : 'border-slate-200 bg-slate-50')}>
               <div className="flex items-center justify-between gap-3">
-                <button type="button" onClick={() => window.location.assign(`/habits/${habit.id}`)} className="flex flex-1 items-center gap-3 text-left">
+                <button type="button" onClick={() => navigate(`/habits/${habit.id}`)} className="flex flex-1 items-center gap-3 text-left">
                   <div className={cn('flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-lg font-semibold text-white', habit.color)}>{habit.name.slice(0, 1)}</div>
                   <div>
                     <p className={cn('font-medium', darkMode ? 'text-white' : 'text-slate-900')}>{habit.title}</p>
                     <p className={cn('text-sm', darkMode ? 'text-slate-300' : 'text-slate-500')}>Inicio: {habit.firstStartDate || habit.startDate ? format(parseISO(habit.firstStartDate || habit.startDate), 'dd/MM/yyyy') : 'Sin fecha'}</p>
-                    {habit.streakHistory?.length > 0 && <p className={cn('mt-1 text-xs', darkMode ? 'text-amber-300' : 'text-amber-700')}>Último intento: {format(parseISO(habit.streakHistory.at(-1)!.startDate), 'dd/MM/yyyy')}</p>}
+                    {habit.streakHistory?.length > 0 && <p className={cn('mt-1 text-xs', darkMode ? 'text-emerald-300' : 'text-emerald-700')}>Último intento: {format(parseISO(habit.streakHistory.at(-1)!.startDate), 'dd/MM/yyyy')}</p>}
                   </div>
                 </button>
                 <div className="flex gap-2">
@@ -1270,7 +1348,7 @@ function App() {
 
   const renderPage = () => {
     if (location.pathname.startsWith('/habits/')) {
-      return <HabitDetailPage habits={habits} journalEntries={journalEntries} urgeLogs={urgeLogs} darkMode={darkMode} />
+      return <HabitDetailPage habits={habits} setHabits={setHabits} journalEntries={journalEntries} urgeLogs={urgeLogs} darkMode={darkMode} />
     }
 
     switch (location.pathname) {
